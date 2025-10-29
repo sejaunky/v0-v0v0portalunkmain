@@ -531,32 +531,88 @@ function ProspeccaoDialog({ onClose, onSave }: { onClose: () => void; onSave: ()
   useEffect(() => {
     if (typeof window === "undefined") return
 
-    try {
-      const rawProfiles = localStorage.getItem("profiles")
-      if (rawProfiles) {
-        const parsed = JSON.parse(rawProfiles)
-        if (Array.isArray(parsed)) {
-          const map = parsed
-            .filter((p: any) => p.id)
-            .map((p: any) => ({ id: p.id, label: p.artist_name || p.full_name || p.email || "DJ sem nome" }))
-          setDjs(map)
+    let mounted = true
+
+    const loadFromLocalStorage = () => {
+      try {
+        const rawProfiles = localStorage.getItem("profiles")
+        if (rawProfiles) {
+          const parsed = JSON.parse(rawProfiles)
+          if (Array.isArray(parsed)) {
+            const map = parsed
+              .filter((p: any) => p && p.id)
+              .map((p: any) => ({ id: p.id, label: p.artist_name || p.full_name || p.email || "DJ sem nome" }))
+            setDjs(map)
+          }
         }
+      } catch (e) {
+        // ignore
       }
-    } catch (e) {
-      // ignore
+
+      try {
+        const rawProducers = localStorage.getItem("producers")
+        if (rawProducers) {
+          const parsed = JSON.parse(rawProducers)
+          if (Array.isArray(parsed)) {
+            const map = parsed.map((p: any) => ({ id: p.id || p.name || String(p), label: p.name || p }))
+            setProducers(map)
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
     }
 
-    try {
-      const rawProducers = localStorage.getItem("producers")
-      if (rawProducers) {
-        const parsed = JSON.parse(rawProducers)
-        if (Array.isArray(parsed)) {
-          const map = parsed.map((p: any) => ({ id: p.id || p.name || String(p), label: p.name || p }))
-          setProducers(map)
+    const fetchLists = async () => {
+      try {
+        const [djsRes, producersRes] = await Promise.all([
+          fetch('/api/djs').then((r) => r.json()).catch((e) => ({ error: String(e) })),
+          fetch('/api/producers').then((r) => r.json()).catch((e) => ({ error: String(e) })),
+        ])
+
+        if (!mounted) return
+
+        // DJs
+        if (djsRes && Array.isArray((djsRes as any).djs)) {
+          const rows = (djsRes as any).djs
+          setDjs(rows.map((p: any) => ({ id: p.id, label: p.artist_name || p.name || p.real_name || p.full_name || p.email || 'DJ sem nome' })))
+        } else if (Array.isArray(djsRes)) {
+          setDjs((djsRes as any).map((p: any) => ({ id: p.id, label: p.artist_name || p.name || p.real_name || p.full_name || p.email || 'DJ sem nome' })))
+        } else {
+          // fallback to localStorage
+          loadFromLocalStorage()
         }
+
+        // Producers
+        if (producersRes && Array.isArray((producersRes as any).producers)) {
+          const rows = (producersRes as any).producers
+          setProducers(rows.map((p: any) => ({ id: p.id, label: p.name || p.company || p.email || 'Produtor sem nome' })))
+        } else if (Array.isArray(producersRes)) {
+          setProducers((producersRes as any).map((p: any) => ({ id: p.id || p.name || String(p), label: p.name || p })))
+        } else {
+          // fallback
+          const rawProducers = localStorage.getItem('producers')
+          if (rawProducers) {
+            try {
+              const parsed = JSON.parse(rawProducers)
+              if (Array.isArray(parsed)) {
+                setProducers(parsed.map((p: any) => ({ id: p.id || p.name || String(p), label: p.name || p })))
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch DJs or producers from API, falling back to localStorage', err)
+        loadFromLocalStorage()
       }
-    } catch (e) {
-      // ignore
+    }
+
+    fetchLists()
+
+    return () => {
+      mounted = false
     }
   }, [])
 
