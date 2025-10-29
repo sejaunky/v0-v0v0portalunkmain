@@ -35,10 +35,10 @@ export async function POST(request: NextRequest) {
     const result = await sql`
       INSERT INTO prospeccoes (
         title, description, location, data, budget, client_name, client_contact,
-        dj_id, dj_name, producer_name, status, created_at
+        dj_id, dj_name, status, created_at
       ) VALUES (
         ${payload.title}, ${payload.description || null}, ${payload.location || null}, ${payload.data || null}, ${payload.budget || null},
-        ${payload.client_name || null}, ${payload.client_contact || null}, ${payload.dj_id || null}, ${payload.dj_name || null}, ${payload.producer_name || null},
+        ${payload.client_name || null}, ${payload.client_contact || null}, ${payload.dj_id || null}, ${payload.dj_name || null},
         ${payload.status || 'prospecção'}, NOW()
       ) RETURNING *
     `
