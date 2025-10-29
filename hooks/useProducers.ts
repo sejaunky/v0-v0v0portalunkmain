@@ -1,6 +1,6 @@
 import type { UseQueryResult } from "@tanstack/react-query"
-import { useNeonData } from "./useNeonData"
-import { producerService } from "@/services/neonService"
+import { useSupabaseData as useNeonData } from "./useSupabaseData"
+import { producerService } from "@/services/supabaseService"
 
 type ProducerRecord = {
   id: string
