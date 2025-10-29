@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { isNeonConfigured } from "@/lib/neon"
-import { eventService } from "@/services/neonService"
+import { isSupabaseConfigured } from "@/lib/supabase"
+import { eventService } from "@/services/supabaseService"
 
 export async function GET() {
   try {
