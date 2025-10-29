@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Calendar, Plus, Search, Filter, Grid3x3, List, Clock, AlertCircle } from "lucide-react"
+import { Calendar, Plus, Search, Filter, Grid3x3, List, Clock, AlertCircle, User, Users, MapPin, DollarSign, Trash2, Edit as EditIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,6 +32,22 @@ type AgendaItem = {
   category: "instagram" | "music_project" | "set_release" | "event" | "personal"
 }
 
+type Prospeccao = {
+  id: string
+  title: string
+  description?: string | null
+  location?: string | null
+  data?: string | null
+  budget?: number | null
+  client_name?: string | null
+  client_contact?: string | null
+  dj_id?: string | null
+  dj_name?: string | null
+  producer_name?: string | null
+  status?: "prospecção" | "negociação" | "fechado" | "perdido"
+  created_at: string
+}
+
 const statusOptions = [
   { value: "todo", label: "A Fazer", color: "bg-gray-500" },
   { value: "in_progress", label: "Em Andamento", color: "bg-yellow-500" },
@@ -58,6 +74,7 @@ export default function AgendaManagerPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [viewMode, setViewMode] = useState<"grid" | "list" | "kanban">("grid")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<AgendaItem | null>(null)
   const { toast } = useToast()
 
@@ -131,25 +148,40 @@ export default function AgendaManagerPage() {
             <p className="text-muted-foreground mt-1">Gerencie suas tarefas e compromissos</p>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                onClick={() => setEditingItem(null)}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Tarefa
-              </Button>
-            </DialogTrigger>
-            <AgendaItemDialog
-              item={editingItem}
-              onSave={handleAddItem}
-              onClose={() => {
-                setIsDialogOpen(false)
-                setEditingItem(null)
-              }}
-            />
-          </Dialog>
+          <div className="flex items-center gap-2">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  onClick={() => setEditingItem(null)}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nova Tarefa
+                </Button>
+              </DialogTrigger>
+              <AgendaItemDialog
+                item={editingItem}
+                onSave={handleAddItem}
+                onClose={() => {
+                  setIsDialogOpen(false)
+                  setEditingItem(null)
+                }}
+              />
+            </Dialog>
+
+            <Dialog open={isProspeccaoOpen} onOpenChange={setIsProspeccaoOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">Prospecção</Button>
+              </DialogTrigger>
+              <ProspeccaoDialog
+                onClose={() => setIsProspeccaoOpen(false)}
+                onSave={() => {
+                  setIsProspeccaoOpen(false)
+                  toast({ title: "Prospecção salva com sucesso!" })
+                }}
+              />
+            </Dialog>
+          </div>
         </div>
 
         {/* Filters and Search */}
@@ -473,6 +505,189 @@ function AgendaItemDialog({
         >
           {item ? "Atualizar" : "Criar"}
         </Button>
+      </DialogFooter>
+    </DialogContent>
+  )
+}
+
+function ProspeccaoDialog({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
+  const { toast } = useToast()
+  const [formData, setFormData] = useState<Partial<Prospeccao>>({
+    title: "",
+    description: "",
+    location: "",
+    data: new Date().toISOString().split("T")[0],
+    budget: undefined,
+    client_name: "",
+    client_contact: "",
+    dj_id: "",
+    dj_name: "",
+    producer_name: "",
+  })
+
+  const [djs, setDjs] = useState<{ id: string; label: string }[]>([])
+  const [producers, setProducers] = useState<{ id: string; label: string }[]>([])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    try {
+      const rawProfiles = localStorage.getItem("profiles")
+      if (rawProfiles) {
+        const parsed = JSON.parse(rawProfiles)
+        if (Array.isArray(parsed)) {
+          const map = parsed
+            .filter((p: any) => p.id)
+            .map((p: any) => ({ id: p.id, label: p.artist_name || p.full_name || p.email || "DJ sem nome" }))
+          setDjs(map)
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    try {
+      const rawProducers = localStorage.getItem("producers")
+      if (rawProducers) {
+        const parsed = JSON.parse(rawProducers)
+        if (Array.isArray(parsed)) {
+          const map = parsed.map((p: any) => ({ id: p.id || p.name || String(p), label: p.name || p }))
+          setProducers(map)
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [])
+
+  const handleSubmit = () => {
+    if (!formData.title || !formData.client_name) {
+      toast({ title: "Preencha título e cliente", variant: "destructive" })
+      return
+    }
+
+    try {
+      const raw = localStorage.getItem("prospeccoes")
+      const existing: Prospeccao[] = raw ? JSON.parse(raw) : []
+      const newRow: Prospeccao = {
+        id: Date.now().toString(),
+        title: formData.title || "",
+        description: formData.description || null,
+        location: formData.location || null,
+        data: formData.data || null,
+        budget: typeof formData.budget === "number" ? formData.budget : formData.budget ? Number(formData.budget) : null,
+        client_name: formData.client_name || null,
+        client_contact: formData.client_contact || null,
+        dj_id: formData.dj_id || null,
+        dj_name: formData.dj_name || null,
+        producer_name: formData.producer_name || null,
+        status: "prospecção",
+        created_at: new Date().toISOString(),
+      }
+      const updated = [newRow, ...existing]
+      localStorage.setItem("prospeccoes", JSON.stringify(updated))
+      toast({ title: "Prospecção salva" })
+      onSave()
+    } catch (err) {
+      console.error(err)
+      toast({ title: "Erro ao salvar prospecção", variant: "destructive" })
+    }
+  }
+
+  return (
+    <DialogContent className="sm:max-w-[600px]">
+      <DialogHeader>
+        <DialogTitle>Nova Prospecção</DialogTitle>
+        <DialogDescription>Crie uma prospecção de data de evento</DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label>Título *</Label>
+          <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Cliente *</Label>
+            <Input value={formData.client_name} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} />
+          </div>
+
+          <div>
+            <Label>Contato</Label>
+            <Input value={formData.client_contact} onChange={(e) => setFormData({ ...formData, client_contact: e.target.value })} placeholder="Telefone ou email" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label>DJ (Selecione ou digite)</Label>
+            {djs.length > 0 ? (
+              <Select value={formData.dj_id || ""} onValueChange={(v) => setFormData({ ...formData, dj_id: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um DJ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nenhum</SelectItem>
+                  {djs.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input value={formData.dj_name} onChange={(e) => setFormData({ ...formData, dj_name: e.target.value })} placeholder="Nome do DJ" />
+            )}
+          </div>
+
+          <div>
+            <Label>Produtor (Selecione ou digite)</Label>
+            {producers.length > 0 ? (
+              <Select value={formData.producer_name || ""} onValueChange={(v) => setFormData({ ...formData, producer_name: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um produtor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nenhum</SelectItem>
+                  {producers.map((p) => (
+                    <SelectItem key={p.id} value={p.label}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input value={formData.producer_name} onChange={(e) => setFormData({ ...formData, producer_name: e.target.value })} placeholder="Nome do produtor" />
+            )}
+          </div>
+
+          <div>
+            <Label>Data</Label>
+            <Input type="date" value={formData.data || ""} onChange={(e) => setFormData({ ...formData, data: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label>Local</Label>
+            <Input value={formData.location || ""} onChange={(e) => setFormData({ ...formData, location: e.target.value })} />
+          </div>
+          <div>
+            <Label>Orçamento (R$)</Label>
+            <Input type="number" value={formData.budget ? String(formData.budget) : ""} onChange={(e) => setFormData({ ...formData, budget: e.target.value ? Number(e.target.value) : undefined })} />
+          </div>
+          <div>
+            <Label>Contato do cliente</Label>
+            <Input value={formData.client_contact || ""} onChange={(e) => setFormData({ ...formData, client_contact: e.target.value })} />
+          </div>
+        </div>
+
+        <div>
+          <Label>Descrição</Label>
+          <Textarea value={formData.description || ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={handleSubmit} className="bg-gradient-to-r from-purple-500 to-pink-500">Salvar</Button>
       </DialogFooter>
     </DialogContent>
   )
