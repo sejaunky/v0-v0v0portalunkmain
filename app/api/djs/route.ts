@@ -1,45 +1,25 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSql, isNeonConfigured } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function GET() {
   try {
-    if (!isNeonConfigured()) {
-      console.warn("Database not configured. Please connect to Neon.")
+    if (!isSupabaseConfigured()) {
+      console.warn("Supabase not configured.")
       return NextResponse.json({ djs: [], warning: "Database not configured" }, { status: 200 })
     }
 
-    const sql = getSql()
+    const supabase = supabaseServer
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
 
-    if (!sql) {
-      throw new Error("Failed to initialize database connection")
+    // Try ordering by artist_name, fallback to name
+    let { data, error } = await supabase.from('djs').select('*').order('artist_name', { ascending: true })
+
+    if (error && String(error.message || '').toLowerCase().includes('column') ) {
+      const fallback = await supabase.from('djs').select('*, name as artist_name').order('name', { ascending: true })
+      data = fallback.data
     }
 
-    // Try selecting ordered by artist_name; if that column doesn't exist, fall back to ordering by name.
-    let data
-    try {
-      data = await sql`
-        SELECT * FROM djs
-        ORDER BY artist_name ASC
-      `
-    } catch (err: any) {
-      // Postgres error code 42703 = undefined column
-      if (
-        err &&
-        (err.code === "42703" ||
-          String(err.message || "")
-            .toLowerCase()
-            .includes("does not exist"))
-      ) {
-        data = await sql`
-          SELECT d.*, d.name as artist_name FROM djs d
-          ORDER BY d.name ASC
-        `
-      } else {
-        throw err
-      }
-    }
-
-    return NextResponse.json({ djs: data })
+    return NextResponse.json({ djs: data || [] })
   } catch (error) {
     console.error("Failed to fetch DJs:", error)
     return NextResponse.json(
@@ -54,16 +34,13 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
 
     const payload = await request.json()
-    const sql = getSql()
-
-    if (!sql) {
-      throw new Error("Failed to initialize database connection")
-    }
+    const supabase = supabaseServer
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
 
     // Normalize status
     if (payload.status && typeof payload.status === "string") {
@@ -79,26 +56,32 @@ export async function POST(request: NextRequest) {
       payload.status = statusMap[normalizedStatus] || "ativo"
     }
 
-    const result = await sql`
-      INSERT INTO djs (
-        artist_name, real_name, email, genre, base_price,
-        instagram_url, youtube_url, tiktok_url, soundcloud_url,
-        birth_date, status, is_active, avatar_url, phone, cpf,
-        pix_key, bank_name, bank_agency, bank_account, notes
-      )
-      VALUES (
-        ${payload.artist_name}, ${payload.real_name}, ${payload.email},
-        ${payload.genre}, ${payload.base_price}, ${payload.instagram_url},
-        ${payload.youtube_url}, ${payload.tiktok_url}, ${payload.soundcloud_url},
-        ${payload.birth_date}, ${payload.status || "ativo"}, ${payload.is_active !== false},
-        ${payload.avatar_url || null}, ${payload.phone || null}, ${payload.cpf || null},
-        ${payload.pix_key || null}, ${payload.bank_name || null}, 
-        ${payload.bank_agency || null}, ${payload.bank_account || null}, ${payload.notes || null}
-      )
-      RETURNING *
-    `
+    const { data: result, error } = await supabase.from('djs').insert([{
+      artist_name: payload.artist_name,
+      real_name: payload.real_name,
+      email: payload.email,
+      genre: payload.genre,
+      base_price: payload.base_price,
+      instagram_url: payload.instagram_url,
+      youtube_url: payload.youtube_url,
+      tiktok_url: payload.tiktok_url,
+      soundcloud_url: payload.soundcloud_url,
+      birth_date: payload.birth_date,
+      status: payload.status || 'ativo',
+      is_active: payload.is_active !== false,
+      avatar_url: payload.avatar_url || null,
+      phone: payload.phone || null,
+      cpf: payload.cpf || null,
+      pix_key: payload.pix_key || null,
+      bank_name: payload.bank_name || null,
+      bank_agency: payload.bank_agency || null,
+      bank_account: payload.bank_account || null,
+      notes: payload.notes || null,
+    }]).select()
 
-    return NextResponse.json({ dj: result[0] })
+    if (error) throw error
+
+    return NextResponse.json({ dj: result && result[0] })
   } catch (error) {
     console.error("Failed to create DJ:", error)
     return NextResponse.json(
