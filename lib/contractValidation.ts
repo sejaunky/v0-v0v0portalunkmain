@@ -1,4 +1,4 @@
-import { getSql } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export const validateContractForSignature = async (
   contractId: string,
@@ -7,15 +7,19 @@ export const validateContractForSignature = async (
   error?: string
 }> => {
   try {
-    const sql = getSql()
-    const result = await sql`
-      SELECT id, signature_status, contract_content, event_id, dj_id, producer_id
-      FROM contract_instances
-      WHERE id = ${contractId}
-      LIMIT 1
-    `
+    if (!isSupabaseConfigured()) return { canSign: false, error: "Database not configured" }
+    const supabase = supabaseServer
+    if (!supabase) return { canSign: false, error: "Database not configured" }
 
-    const contract = result[0]
+    const { data, error } = await supabase
+      .from('contract_instances')
+      .select('id, signature_status, contract_content, event_id, dj_id, producer_id')
+      .eq('id', contractId)
+      .limit(1)
+
+    if (error) throw error
+
+    const contract = Array.isArray(data) ? data[0] : data
 
     if (!contract) {
       return { canSign: false, error: "Contrato não encontrado." }
