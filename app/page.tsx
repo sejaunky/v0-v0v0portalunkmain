@@ -1,5 +1,7 @@
 "use client"
 
+"use client"
+
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import MetricsCard from "@/components/admin-dashboard/MetricsCard"
