@@ -15,11 +15,12 @@ export async function GET() {
     if (error) throw error
 
     return NextResponse.json({ payments: data || [] })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to load pending payments:", error)
+    const details = error?.message || (typeof error === 'string' ? error : JSON.stringify(error))
     return NextResponse.json({
       error: "Failed to load pending payments",
-      details: error instanceof Error ? error.message : "Unknown error"
+      details: details || "Unknown error"
     }, { status: 500 })
   }
 }
