@@ -1,6 +1,6 @@
 import type { UseQueryResult } from "@tanstack/react-query"
-import { useNeonData } from "./useNeonData"
-import { djServiceWrapper } from "@/services/neonService"
+import { useSupabaseData as useNeonData } from "./useSupabaseData"
+import { djService as djServiceWrapper } from "@/services/supabaseService"
 
 type DjRecord = {
   id: string
