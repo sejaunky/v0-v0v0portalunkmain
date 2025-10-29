@@ -1,5 +1,7 @@
 "use client"
 
+"use client"
+
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
@@ -11,21 +13,54 @@ const PaymentReviews = () => {
   const load = async () => {
     setLoading(true)
     try {
-      const response = await fetch("/api/payments/pending")
-      const data = await response.json()
+      const fetchOnce = async () => {
+        const response = await fetch("/api/payments/pending")
+        if (!response.ok) {
+          // try to read details if possible
+          const maybeBody = await response.text().catch(() => null)
+          let details = null
+          try {
+            details = maybeBody ? JSON.parse(maybeBody) : null
+          } catch (_) {
+            details = null
+          }
+          throw new Error((details && details.details) || "Failed to load pending payments")
+        }
+        const data = await response.json().catch(() => null)
+        return data
+      }
 
-      if (data.warning) {
+      let data
+      try {
+        data = await fetchOnce()
+      } catch (err) {
+        // If body stream was already read, retry once
+        if (err instanceof TypeError && String(err).includes("body stream already read")) {
+          const retryRes = await fetch("/api/payments/pending")
+          if (!retryRes.ok) {
+            const errText = await retryRes.text().catch(() => null)
+            let parsed = null
+            try {
+              parsed = errText ? JSON.parse(errText) : null
+            } catch (_) {
+              parsed = null
+            }
+            throw new Error((parsed && parsed.details) || "Failed to load pending payments")
+          }
+          data = await retryRes.json().catch(() => null)
+        } else {
+          throw err
+        }
+      }
+
+      if (data && data.warning) {
         console.warn(data.warning)
         toast({ title: "Aviso", description: "Banco de dados não está configurado. Conecte ao Neon para ver os dados.", variant: "default" })
         setPending([])
         return
       }
 
-      if (!response.ok) {
-        throw new Error(data.details || "Failed to load pending payments")
-      }
-
-      setPending(data.payments ?? [])
+      setPending(data?.payments ?? [])
     } catch (err) {
       console.error("Failed to load pending payments", err)
       toast({ title: "Erro", description: "Não foi possível carregar comprovantes pendentes", variant: "destructive" })
@@ -39,7 +74,7 @@ const PaymentReviews = () => {
     void load()
   }, [])
 
-  const review = async (eventId, action) => {
+  const review = async (paymentId, action) => {
     if (action === "reject") {
       const reason = prompt("Motivo da rejeição (visível ao produtor):")
       if (!reason) return
@@ -47,11 +82,12 @@ const PaymentReviews = () => {
         const response = await fetch("/api/payments/review", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ eventId, action: "reject", reason }),
+          body: JSON.stringify({ paymentId, status: "rejected", reason }),
         })
 
         if (!response.ok) {
-          throw new Error("Failed to reject payment")
+          const errBody = await response.json().catch(() => null)
+          throw new Error(errBody?.error || "Failed to reject payment")
         }
 
         toast({ title: "Rejeitado", description: "Comprovante rejeitado e produtor notificado." })
@@ -68,11 +104,12 @@ const PaymentReviews = () => {
       const response = await fetch("/api/payments/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, action: "accept" }),
+        body: JSON.stringify({ paymentId, status: "paid" }),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to accept payment")
+        const errBody = await response.json().catch(() => null)
+        throw new Error(errBody?.error || "Failed to accept payment")
       }
 
       toast({ title: "Pago", description: "Pagamento confirmado e evento marcado como pago." })
