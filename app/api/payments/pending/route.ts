@@ -1,26 +1,20 @@
 import { NextResponse } from "next/server"
-import { getSql, isNeonConfigured } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function GET() {
   try {
-    if (!isNeonConfigured()) {
-      console.warn("Database not configured. Please connect to Neon.")
+    if (!isSupabaseConfigured()) {
+      console.warn("Database not configured. Please connect to Supabase.")
       return NextResponse.json({ payments: [], warning: "Database not configured" }, { status: 200 })
     }
 
-    const sql = getSql()
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
 
-    if (!sql) {
-      throw new Error("Failed to initialize database connection")
-    }
+    const { data, error } = await supabase.from('payments').select('*').eq('status', 'pending').order('created_at', { ascending: false })
+    if (error) throw error
 
-    const data = await sql`
-      SELECT *
-      FROM events
-      ORDER BY created_at DESC
-    `
-
-    return NextResponse.json({ payments: data })
+    return NextResponse.json({ payments: data || [] })
   } catch (error) {
     console.error("Failed to load pending payments:", error)
     return NextResponse.json({
