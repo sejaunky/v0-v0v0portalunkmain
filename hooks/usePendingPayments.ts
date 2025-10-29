@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { paymentService, storageService } from "@/services/neonService"
+import { paymentService, storageService } from "@/services/supabaseService"
 
 type Nullable<T> = T | null | undefined
 
