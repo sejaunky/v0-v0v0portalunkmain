@@ -1,5 +1,7 @@
 "use client"
 
+"use client"
+
 import { useState, useEffect } from "react"
 import { Calendar, Plus, Search, Filter, Grid3x3, List, Clock, AlertCircle, User, Users, MapPin, DollarSign, Trash2, Edit as EditIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
