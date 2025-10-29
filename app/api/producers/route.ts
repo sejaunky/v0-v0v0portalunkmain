@@ -1,0 +1,153 @@
+import { type NextRequest, NextResponse } from "next/server"
+import { getSql, isNeonConfigured } from "@/lib/neon"
+
+export async function GET() {
+  try {
+    if (!isNeonConfigured()) {
+      return NextResponse.json({ producers: [], warning: "Database not configured" }, { status: 200 })
+    }
+
+    const sql = getSql()
+    if (!sql) {
+      throw new Error("Failed to initialize database connection")
+    }
+
+    const producers = await sql`SELECT * FROM producers ORDER BY created_at DESC`
+
+    // Normalize returned rows to the frontend shape
+    const normalized = (producers || []).map((p: any) => ({
+      id: p.id,
+      name: p.name || p.name,
+      email: p.email || null,
+      company: p.company_name || p.company || null,
+      phone: p.phone || null,
+      status: p.status || "active",
+      avatar_url: p.avatar_url || null, // Adicionando avatar_url
+      cnpj: p.cnpj || null,
+      address: p.address || null,
+      notes: p.notes || null,
+    }))
+
+    return NextResponse.json({ producers: normalized })
+  } catch (error) {
+    console.error("Failed to fetch producers:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch producers", details: error instanceof Error ? error.message : "Unknown" },
+      { status: 500 },
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    if (!isNeonConfigured()) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
+
+    const payload = await request.json()
+    const sql = getSql()
+
+    if (!sql) {
+      throw new Error("Failed to initialize database connection")
+    }
+
+    const result = await sql`
+      INSERT INTO producers (
+        name, email, company_name, phone, status, avatar_url, cnpj, address, notes
+      )
+      VALUES (
+        ${payload.name}, ${payload.email || null}, ${payload.company || null},
+        ${payload.phone || null}, ${payload.status || "active"}, ${payload.avatar_url || null},
+        ${payload.cnpj || null}, ${payload.address || null}, ${payload.notes || null}
+      )
+      RETURNING *
+    `
+
+    const created = result[0]
+
+    const normalized = {
+      id: created.id,
+      name: created.name,
+      email: created.email || null,
+      company: created.company_name || null,
+      phone: created.phone || null,
+      status: created.status || "active",
+      avatar_url: created.avatar_url || null,
+      cnpj: created.cnpj || null,
+      address: created.address || null,
+      notes: created.notes || null,
+    }
+
+    return NextResponse.json({ producer: normalized })
+  } catch (error) {
+    console.error("Failed to create producer:", error)
+    return NextResponse.json(
+      { error: "Failed to create producer", details: error instanceof Error ? error.message : "Unknown" },
+      { status: 500 },
+    )
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    if (!isNeonConfigured()) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
+
+    const { id, ...payload } = await request.json()
+
+    if (!id) {
+      return NextResponse.json({ error: "Producer ID is required" }, { status: 400 })
+    }
+
+    const sql = getSql()
+
+    if (!sql) {
+      throw new Error("Failed to initialize database connection")
+    }
+
+    const result = await sql`
+      UPDATE producers
+      SET
+        name = ${payload.name},
+        email = ${payload.email},
+        company_name = ${payload.company},
+        phone = ${payload.phone},
+        status = ${payload.status},
+        avatar_url = ${payload.avatar_url},
+        cnpj = ${payload.cnpj},
+        address = ${payload.address},
+        notes = ${payload.notes},
+        updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `
+
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Producer not found" }, { status: 404 })
+    }
+
+    const updated = result[0]
+
+    const normalized = {
+      id: updated.id,
+      name: updated.name,
+      email: updated.email || null,
+      company: updated.company_name || null,
+      phone: updated.phone || null,
+      status: updated.status || "active",
+      avatar_url: updated.avatar_url || null,
+      cnpj: updated.cnpj || null,
+      address: updated.address || null,
+      notes: updated.notes || null,
+    }
+
+    return NextResponse.json({ producer: normalized })
+  } catch (error) {
+    console.error("Failed to update producer:", error)
+    return NextResponse.json(
+      { error: "Failed to update producer", details: error instanceof Error ? error.message : "Unknown" },
+      { status: 500 },
+    )
+  }
+}
