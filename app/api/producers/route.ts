@@ -1,28 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSql, isNeonConfigured } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function GET() {
   try {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({ producers: [], warning: "Database not configured" }, { status: 200 })
     }
 
-    const sql = getSql()
-    if (!sql) {
-      throw new Error("Failed to initialize database connection")
-    }
+    const supabase = supabaseServer
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
 
-    const producers = await sql`SELECT * FROM producers ORDER BY created_at DESC`
+    const { data, error } = await supabase.from('producers').select('*').order('created_at', { ascending: false })
+    if (error) throw error
 
-    // Normalize returned rows to the frontend shape
-    const normalized = (producers || []).map((p: any) => ({
+    const normalized = (data || []).map((p: any) => ({
       id: p.id,
       name: p.name || p.name,
       email: p.email || null,
       company: p.company_name || p.company || null,
       phone: p.phone || null,
       status: p.status || "active",
-      avatar_url: p.avatar_url || null, // Adicionando avatar_url
+      avatar_url: p.avatar_url || null,
       cnpj: p.cnpj || null,
       address: p.address || null,
       notes: p.notes || null,
@@ -40,30 +38,29 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
 
     const payload = await request.json()
-    const sql = getSql()
+    const supabase = supabaseServer
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
 
-    if (!sql) {
-      throw new Error("Failed to initialize database connection")
-    }
+    const { data: result, error } = await supabase.from('producers').insert([{
+      name: payload.name,
+      email: payload.email || null,
+      company_name: payload.company || null,
+      phone: payload.phone || null,
+      status: payload.status || 'active',
+      avatar_url: payload.avatar_url || null,
+      cnpj: payload.cnpj || null,
+      address: payload.address || null,
+      notes: payload.notes || null,
+    }]).select()
 
-    const result = await sql`
-      INSERT INTO producers (
-        name, email, company_name, phone, status, avatar_url, cnpj, address, notes
-      )
-      VALUES (
-        ${payload.name}, ${payload.email || null}, ${payload.company || null},
-        ${payload.phone || null}, ${payload.status || "active"}, ${payload.avatar_url || null},
-        ${payload.cnpj || null}, ${payload.address || null}, ${payload.notes || null}
-      )
-      RETURNING *
-    `
+    if (error) throw error
 
-    const created = result[0]
+    const created = result && result[0]
 
     const normalized = {
       id: created.id,
