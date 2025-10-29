@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSql } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,26 +9,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    const sql = getSql()
+    if (!isSupabaseConfigured()) return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
 
-    const result = await sql`
-      UPDATE profiles 
-      SET reset_token = gen_random_uuid()::text,
-          reset_token_expires = NOW() + INTERVAL '1 hour'
-      WHERE email = ${email}
-      RETURNING reset_token
-    `
+    const resetToken = crypto?.randomUUID ? crypto.randomUUID() : String(Date.now())
+    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString()
 
-    if (result.length > 0) {
-      return NextResponse.json({
-        success: true,
-        message: "Reset link sent to your email",
-      })
-    } else {
-      return NextResponse.json({ error: "Email not found" }, { status: 404 })
+    const { data, error } = await supabase.from('profiles').update({ reset_token: resetToken, reset_token_expires: expires }).eq('email', email).select()
+
+    if (error) throw error
+
+    if (data && data.length > 0) {
+      return NextResponse.json({ success: true, message: 'Reset link sent to your email' })
     }
+
+    return NextResponse.json({ error: 'Email not found' }, { status: 404 })
   } catch (error) {
-    console.error("Password reset request error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error('Password reset request error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
