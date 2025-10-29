@@ -666,7 +666,6 @@ function ProspeccaoDialog({ onClose, onSave }: { onClose: () => void; onSave: ()
           client_contact: payload.client_contact || null,
           dj_id: payload.dj_id || null,
           dj_name: payload.dj_name || null,
-          producer_name: payload.producer_name || null,
           status: 'prospecção',
           created_at: new Date().toISOString(),
         }
