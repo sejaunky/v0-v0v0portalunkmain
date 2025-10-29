@@ -1,7 +1,5 @@
-'use client';
+import ProducersList from '@/components/ProducersList'
 
-import { redirect } from 'next/navigation';
-
-export default function ProducersPage() {
-  redirect('/producer-management');
+export default function Page() {
+  return <ProducersList />
 }
