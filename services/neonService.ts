@@ -280,14 +280,67 @@ class StorageService {
   }
 }
 
-// Export service instances
-export const djService = new DJService()
-export const producerService = new ProducerService()
-export const eventService = new EventService()
-export const paymentService = new PaymentService()
-export const contractService = new ContractService()
-export const analyticsService = new AnalyticsService()
-export const storageService = new StorageService()
+// Export server-side service instances
+const djServiceServer = new DJService()
+const producerServiceServer = new ProducerService()
+const eventServiceServer = new EventService()
+const paymentServiceServer = new PaymentService()
+const contractServiceServer = new ContractService()
+const analyticsServiceServer = new AnalyticsService()
+const storageServiceServer = new StorageService()
+
+// Client-side fetch wrappers
+const makeCollectionWrapper = (baseApiPath: string) => ({
+  async getAll() {
+    const res = await fetch(baseApiPath)
+    const json = await res.json().catch(() => null)
+    return json?.djs || json?.producers || json?.prospeccoes || json || []
+  },
+  async getById(id: string) {
+    const res = await fetch(`${baseApiPath}/${id}`)
+    const json = await res.json().catch(() => null)
+    return json || null
+  },
+  async create(payload: any) {
+    const res = await fetch(baseApiPath, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    return res.json()
+  },
+  async update(id: string, payload: any) {
+    const res = await fetch(baseApiPath, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...payload }) })
+    return res.json()
+  },
+  async delete(id: string) {
+    const res = await fetch(baseApiPath, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    return res.json()
+  },
+})
+
+const djServiceClient = makeCollectionWrapper('/api/djs')
+const producerServiceClient = makeCollectionWrapper('/api/producers')
+const eventServiceClient = makeCollectionWrapper('/api/events')
+const paymentServiceClient = makeCollectionWrapper('/api/payments')
+const contractServiceClient = makeCollectionWrapper('/api/contracts')
+const analyticsServiceClient = {
+  async getStats() {
+    const res = await fetch('/api/analytics')
+    const json = await res.json().catch(() => null)
+    return json || {}
+  },
+  async getRevenueByMonth() {
+    const res = await fetch('/api/analytics/revenue')
+    const json = await res.json().catch(() => null)
+    return json || []
+  },
+}
+
+// Export appropriate instance depending on environment
+export const djService = typeof window !== 'undefined' ? djServiceClient : djServiceServer
+export const producerService = typeof window !== 'undefined' ? producerServiceClient : producerServiceServer
+export const eventService = typeof window !== 'undefined' ? eventServiceClient : eventServiceServer
+export const paymentService = typeof window !== 'undefined' ? paymentServiceClient : paymentServiceServer
+export const contractService = typeof window !== 'undefined' ? contractServiceClient : contractServiceServer
+export const analyticsService = typeof window !== 'undefined' ? analyticsServiceClient : analyticsServiceServer
+export const storageService = typeof window !== 'undefined' ? ({} as any) : storageServiceServer
 
 // Export wrapper for compatibility
 export const djServiceWrapper = djService
