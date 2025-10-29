@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSql } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
@@ -13,19 +13,14 @@ export async function POST(request: NextRequest) {
     const tempPassword = Math.random().toString(36).slice(-8)
     const hashedPassword = await bcrypt.hash(tempPassword, 10)
 
-    const sql = getSql()
-    await sql`
-      UPDATE users 
-      SET password = ${hashedPassword}, updated_at = NOW()
-      WHERE email = ${email}
-    `
+    if (!isSupabaseConfigured()) return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
 
-    // Note: In production, you should send this via email instead of returning it
-    return NextResponse.json({
-      success: true,
-      message: "Password reset successfully",
-      tempPassword, // Remove this in production and send via email
-    })
+    const { error } = await supabase.from('users').update({ password: hashedPassword, updated_at: new Date().toISOString() }).eq('email', email)
+    if (error) throw error
+
+    return NextResponse.json({ success: true, message: "Password reset successfully", tempPassword })
   } catch (error) {
     console.error("Error resetting password:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
