@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { analyticsService } from '@/services/neonService'
+import { analyticsService } from '@/services/supabaseService'
 
 export async function GET() {
   try {
