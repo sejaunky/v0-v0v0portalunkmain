@@ -1,25 +1,23 @@
-"use client"
-
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback } from "react"
 
-type UseNeonDataReturn<TResult> = {
+type UseSupabaseDataReturn<TResult> = {
   data: TResult | undefined
   loading: boolean
   error: Error | null
   refetch: () => Promise<void>
 }
 
-export function useNeonData<TResult = any, TArgs extends any[] = any[]>(
+export function useSupabaseData<TResult = any, TArgs extends any[] = any[]>(
   service: any,
   methodName: string,
   args: TArgs = [] as any,
   deps: any[] = [],
-): UseNeonDataReturn<TResult> {
+): UseSupabaseDataReturn<TResult> {
   const queryClient = useQueryClient()
 
   const queryKey = [
-    "neon",
+    "supabase",
     service?.__serviceName ?? "service",
     methodName,
     ...(deps ?? []),
@@ -45,7 +43,7 @@ export function useNeonData<TResult = any, TArgs extends any[] = any[]>(
         return result
       } catch (err: any) {
         const errorMessage = err?.message || "Falha ao carregar dados do banco"
-        console.error(`[useNeonData] Error calling ${methodName}:`, err)
+        console.error(`[useSupabaseData] Error calling ${methodName}:`, err)
         throw new Error(errorMessage)
       }
     },
@@ -57,10 +55,6 @@ export function useNeonData<TResult = any, TArgs extends any[] = any[]>(
     await queryRefetch()
   }, [queryRefetch])
 
-  // Real-time updates would need to be implemented separately
-  // Neon doesn't have built-in real-time like Supabase
-  // You could use polling or websockets if needed
-
   return {
     data: data as TResult | undefined,
     loading: isLoading,
@@ -69,5 +63,4 @@ export function useNeonData<TResult = any, TArgs extends any[] = any[]>(
   }
 }
 
-// Export with original name for compatibility
-export { useNeonData as useSupabaseData }
+export default useSupabaseData

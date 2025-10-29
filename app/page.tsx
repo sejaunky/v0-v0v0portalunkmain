@@ -7,8 +7,8 @@ import SummaryTable from "@/components/admin-dashboard/SummaryTable"
 import PaymentReviews from "@/components/admin-dashboard/PaymentReviews"
 import { Icon } from "@/components/Icon"
 import { useAuth } from "@/hooks/use-auth"
-import { analyticsService, eventService, contractService, djService, paymentService } from "@/services/neonService"
-import { useNeonData } from "@/hooks/useNeonData"
+import { analyticsService, eventService, contractService, djService, paymentService } from "@/services/supabaseService"
+import { useSupabaseData as useNeonData } from "@/hooks/useSupabaseData"
 
 const parseEventDate = (value: string | number | Date) => {
   if (!value) return null

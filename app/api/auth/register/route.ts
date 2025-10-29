@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSql } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
@@ -10,37 +10,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    const sql = getSql()
-
-    // Check if user already exists
-    const existingUsers = await sql`
-      SELECT id FROM users WHERE email = ${email} LIMIT 1
-    `
-
-    if (existingUsers.length > 0) {
-      return NextResponse.json({ error: "User already exists" }, { status: 409 })
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
 
-    // Hash password
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
+
+    const { data: existingUsers, error: existingError } = await supabase.from('users').select('id').eq('email', email).limit(1)
+    if (existingError) throw existingError
+
+    if (existingUsers && existingUsers.length > 0) return NextResponse.json({ error: "User already exists" }, { status: 409 })
+
     const passwordHash = await bcrypt.hash(password, 10)
 
-    // Create user
-    const newUsers = await sql`
-      INSERT INTO users (email, password_hash, name, role, created_at)
-      VALUES (${email}, ${passwordHash}, ${name || email}, ${role || "user"}, NOW())
-      RETURNING id, email, role, name
-    `
+    const { data: newUsers, error } = await supabase.from('users').insert([{ email, password_hash: passwordHash, name: name || email, role: role || 'user' }]).select()
+    if (error) throw error
 
-    const user = newUsers[0]
+    const user = newUsers && newUsers[0]
 
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        name: user.name,
-      },
-    })
+    return NextResponse.json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } })
   } catch (error) {
     console.error("Registration error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

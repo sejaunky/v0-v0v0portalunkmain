@@ -2,8 +2,8 @@
 
 import { useMemo } from "react"
 import type { UseQueryResult } from "@tanstack/react-query"
-import { useNeonData } from "./useNeonData"
-import { eventService, paymentService } from "@/services/neonService"
+import { useSupabaseData as useNeonData } from "./useSupabaseData"
+import { eventService, paymentService } from "@/services/supabaseService"
 
 export type EventRecord = {
   id: string

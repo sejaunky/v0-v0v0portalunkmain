@@ -1,1 +1,1 @@
-export { notesService } from "./neonService"
+export { notesService } from "./supabaseService"

@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
-import { getSql } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -19,53 +19,42 @@ export const authOptions: NextAuthOptions = {
       if (!user.email) return false
 
       try {
-        const sql = getSql()
-        if (!sql) {
+        if (!isSupabaseConfigured()) {
           console.error("[v0] Database not configured")
           return false
         }
+        const supabase = supabaseServer
+        if (!supabase) return false
 
-        // Check if user exists
-        const existingUser = await sql`
-          SELECT id, role FROM users WHERE email = ${user.email}
-        `
+        const { data: existingUser, error: existingError } = await supabase.from('users').select('id, role').eq('email', user.email).limit(1)
+        if (existingError) throw existingError
 
-        if (existingUser.length === 0) {
-          // Create new user
-          const newUser = await sql`
-            INSERT INTO users (email, name, image, role, email_verified)
-            VALUES (${user.email}, ${user.name}, ${user.image}, 'producer', NOW())
-            RETURNING id, role
-          `
-          user.id = newUser[0].id
+        if (!existingUser || existingUser.length === 0) {
+          const { data: newUser, error: insertError } = await supabase.from('users').insert([{ email: user.email, name: user.name, image: user.image, role: 'producer' }]).select()
+          if (insertError) throw insertError
+          user.id = newUser && newUser[0] && newUser[0].id
 
-          // Create user profile
-          await sql`
-            INSERT INTO user_profiles (user_id, name, avatar)
-            VALUES (${newUser[0].id}, ${user.name || ""}, ${user.image})
-          `
+          await supabase.from('user_profiles').insert([{ user_id: user.id, name: user.name || '', avatar: user.image }])
         } else {
           user.id = existingUser[0].id
         }
 
-        // Store account info
         if (account) {
-          await sql`
-            INSERT INTO accounts (
-              user_id, type, provider, provider_account_id,
-              access_token, refresh_token, expires_at, token_type, scope, id_token
-            )
-            VALUES (
-              ${user.id}, ${account.type}, ${account.provider}, ${account.providerAccountId},
-              ${account.access_token}, ${account.refresh_token}, ${account.expires_at},
-              ${account.token_type}, ${account.scope}, ${account.id_token}
-            )
-            ON CONFLICT (provider, provider_account_id) 
-            DO UPDATE SET
-              access_token = EXCLUDED.access_token,
-              refresh_token = EXCLUDED.refresh_token,
-              expires_at = EXCLUDED.expires_at
-          `
+          // upsert account info
+          const accountRow: any = {
+            user_id: user.id,
+            type: account.type,
+            provider: account.provider,
+            provider_account_id: account.providerAccountId,
+            access_token: account.access_token,
+            refresh_token: account.refresh_token,
+            expires_at: account.expires_at,
+            token_type: account.token_type,
+            scope: account.scope,
+            id_token: account.id_token,
+          }
+          const { error: upsertError } = await supabase.from('accounts').upsert([accountRow], { onConflict: 'provider,provider_account_id' })
+          if (upsertError) throw upsertError
         }
 
         return true
@@ -77,36 +66,32 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user && token.sub) {
         try {
-          const sql = getSql()
-          if (!sql) {
+          if (!isSupabaseConfigured()) {
             console.error("[v0] Database not configured")
             return session
           }
+          const supabase = supabaseServer
+          if (!supabase) return session
 
-          const user = await sql`
-            SELECT u.id, u.email, u.name, u.image, u.role, u.created_at,
-                   p.id as profile_id, p.name as profile_name, p.phone, p.avatar
-            FROM users u
-            LEFT JOIN user_profiles p ON u.id = p.user_id
-            WHERE u.id = ${token.sub}
-          `
+          const { data, error } = await supabase
+            .from('users')
+            .select('id, email, name, image, role, created_at, user_profiles(id, name, phone, avatar)')
+            .eq('id', token.sub)
+            .limit(1)
 
-          if (user.length > 0) {
-            session.user.id = user[0].id
-            session.user.email = user[0].email
-            session.user.name = user[0].name
-            session.user.image = user[0].image
-            session.user.role = user[0].role
-            session.user.createdAt = user[0].created_at
-            session.user.profile = user[0].profile_id
-              ? {
-                  id: user[0].profile_id,
-                  userId: user[0].id,
-                  name: user[0].profile_name,
-                  phone: user[0].phone,
-                  avatar: user[0].avatar,
-                }
-              : undefined
+          if (error) throw error
+
+          const user = Array.isArray(data) ? data[0] : data
+
+          if (user) {
+            session.user.id = user.id
+            session.user.email = user.email
+            session.user.name = user.name
+            session.user.image = user.image
+            session.user.role = user.role
+            session.user.createdAt = user.created_at
+            const profile = user.user_profiles && user.user_profiles[0]
+            session.user.profile = profile ? { id: profile.id, userId: user.id, name: profile.name, phone: profile.phone, avatar: profile.avatar } : undefined
           }
         } catch (error) {
           console.error("[v0] Error in session callback:", error)

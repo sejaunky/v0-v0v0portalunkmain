@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSql } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,14 +10,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "eventId, djId, and producerId are required" }, { status: 400 })
     }
 
-    const sql = getSql()
-    const result = await sql`
-      INSERT INTO contract_instances (event_id, dj_id, producer_id, signature_status, created_at)
-      VALUES (${eventId}, ${djId}, ${producerId}, 'pending', NOW())
-      RETURNING *
-    `
+    if (!isSupabaseConfigured()) return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
 
-    return NextResponse.json({ success: true, contract: result[0] })
+    const { data: result, error } = await supabase.from('contract_instances').insert([{ event_id: eventId, dj_id: djId, producer_id: producerId, signature_status: 'pending' }]).select()
+    if (error) throw error
+
+    return NextResponse.json({ success: true, contract: result && result[0] })
   } catch (error) {
     console.error("Error creating contracts:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

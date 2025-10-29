@@ -84,7 +84,9 @@
     "typescript-eslint": "latest",
     "vaul": "latest",
     "webpack": "latest",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "@supabase/supabase-js": "latest",
+    "@supabase/ssr": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",

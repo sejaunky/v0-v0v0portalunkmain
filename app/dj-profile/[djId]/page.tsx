@@ -23,7 +23,7 @@ import {
   Video,
   Trash2,
 } from "lucide-react"
-import { djService } from "@/services/neonService"
+import { djService } from "@/services/supabaseService"
 import { useRouter } from "next/navigation"
 
 export default function DJProfilePage({

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Calendar, Plus, Search, Filter, Grid3x3, List, Clock, AlertCircle } from "lucide-react"
+import { Calendar, Plus, Search, Filter, Grid3x3, List, Clock, AlertCircle, User, Users, MapPin, DollarSign, Trash2, Edit as EditIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,6 +32,22 @@ type AgendaItem = {
   category: "instagram" | "music_project" | "set_release" | "event" | "personal"
 }
 
+type Prospeccao = {
+  id: string
+  title: string
+  description?: string | null
+  location?: string | null
+  data?: string | null
+  budget?: number | null
+  client_name?: string | null
+  client_contact?: string | null
+  dj_id?: string | null
+  dj_name?: string | null
+  producer_name?: string | null
+  status?: "prospecção" | "negociação" | "fechado" | "perdido"
+  created_at: string
+}
+
 const statusOptions = [
   { value: "todo", label: "A Fazer", color: "bg-gray-500" },
   { value: "in_progress", label: "Em Andamento", color: "bg-yellow-500" },
@@ -58,6 +74,7 @@ export default function AgendaManagerPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [viewMode, setViewMode] = useState<"grid" | "list" | "kanban">("grid")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<AgendaItem | null>(null)
   const { toast } = useToast()
 
@@ -131,25 +148,40 @@ export default function AgendaManagerPage() {
             <p className="text-muted-foreground mt-1">Gerencie suas tarefas e compromissos</p>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                onClick={() => setEditingItem(null)}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Tarefa
-              </Button>
-            </DialogTrigger>
-            <AgendaItemDialog
-              item={editingItem}
-              onSave={handleAddItem}
-              onClose={() => {
-                setIsDialogOpen(false)
-                setEditingItem(null)
-              }}
-            />
-          </Dialog>
+          <div className="flex items-center gap-2">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  onClick={() => setEditingItem(null)}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nova Tarefa
+                </Button>
+              </DialogTrigger>
+              <AgendaItemDialog
+                item={editingItem}
+                onSave={handleAddItem}
+                onClose={() => {
+                  setIsDialogOpen(false)
+                  setEditingItem(null)
+                }}
+              />
+            </Dialog>
+
+            <Dialog open={isProspeccaoOpen} onOpenChange={setIsProspeccaoOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">Prospecção</Button>
+              </DialogTrigger>
+              <ProspeccaoDialog
+                onClose={() => setIsProspeccaoOpen(false)}
+                onSave={() => {
+                  setIsProspeccaoOpen(false)
+                  toast({ title: "Prospecção salva com sucesso!" })
+                }}
+              />
+            </Dialog>
+          </div>
         </div>
 
         {/* Filters and Search */}
@@ -473,6 +505,275 @@ function AgendaItemDialog({
         >
           {item ? "Atualizar" : "Criar"}
         </Button>
+      </DialogFooter>
+    </DialogContent>
+  )
+}
+
+function ProspeccaoDialog({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
+  const { toast } = useToast()
+  const [formData, setFormData] = useState<Partial<Prospeccao>>({
+    title: "",
+    description: "",
+    location: "",
+    data: new Date().toISOString().split("T")[0],
+    budget: undefined,
+    client_name: "",
+    client_contact: "",
+    dj_id: "",
+    dj_name: "",
+    producer_name: "",
+  })
+
+  const [djs, setDjs] = useState<{ id: string; label: string }[]>([])
+  const [producers, setProducers] = useState<{ id: string; label: string }[]>([])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    let mounted = true
+
+    const loadFromLocalStorage = () => {
+      try {
+        const rawProfiles = localStorage.getItem("profiles")
+        if (rawProfiles) {
+          const parsed = JSON.parse(rawProfiles)
+          if (Array.isArray(parsed)) {
+            const map = parsed
+              .filter((p: any) => p && p.id)
+              .map((p: any) => ({ id: p.id, label: p.artist_name || p.full_name || p.email || "DJ sem nome" }))
+            setDjs(map)
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      try {
+        const rawProducers = localStorage.getItem("producers")
+        if (rawProducers) {
+          const parsed = JSON.parse(rawProducers)
+          if (Array.isArray(parsed)) {
+            const map = parsed.map((p: any) => ({ id: p.id || p.name || String(p), label: p.name || p }))
+            setProducers(map)
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const fetchLists = async () => {
+      try {
+        const [djsRes, producersRes] = await Promise.all([
+          fetch('/api/djs').then((r) => r.json()).catch((e) => ({ error: String(e) })),
+          fetch('/api/producers').then((r) => r.json()).catch((e) => ({ error: String(e) })),
+        ])
+
+        if (!mounted) return
+
+        // DJs
+        if (djsRes && Array.isArray((djsRes as any).djs)) {
+          const rows = (djsRes as any).djs
+          setDjs(rows.map((p: any) => ({ id: p.id, label: p.artist_name || p.name || p.real_name || p.full_name || p.email || 'DJ sem nome' })))
+        } else if (Array.isArray(djsRes)) {
+          setDjs((djsRes as any).map((p: any) => ({ id: p.id, label: p.artist_name || p.name || p.real_name || p.full_name || p.email || 'DJ sem nome' })))
+        } else {
+          // fallback to localStorage
+          loadFromLocalStorage()
+        }
+
+        // Producers
+        if (producersRes && Array.isArray((producersRes as any).producers)) {
+          const rows = (producersRes as any).producers
+          setProducers(rows.map((p: any) => ({ id: p.id, label: p.name || p.company || p.email || 'Produtor sem nome' })))
+        } else if (Array.isArray(producersRes)) {
+          setProducers((producersRes as any).map((p: any) => ({ id: p.id || p.name || String(p), label: p.name || p })))
+        } else {
+          // fallback
+          const rawProducers = localStorage.getItem('producers')
+          if (rawProducers) {
+            try {
+              const parsed = JSON.parse(rawProducers)
+              if (Array.isArray(parsed)) {
+                setProducers(parsed.map((p: any) => ({ id: p.id || p.name || String(p), label: p.name || p })))
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch DJs or producers from API, falling back to localStorage', err)
+        loadFromLocalStorage()
+      }
+    }
+
+    fetchLists()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const handleSubmit = async () => {
+    if (!formData.title || !formData.client_name) {
+      toast({ title: "Preencha título e cliente", variant: "destructive" })
+      return
+    }
+
+    const payload = {
+      title: formData.title,
+      description: formData.description || null,
+      location: formData.location || null,
+      data: formData.data || null,
+      budget: typeof formData.budget === 'number' ? formData.budget : formData.budget ? Number(formData.budget) : null,
+      client_name: formData.client_name || null,
+      client_contact: formData.client_contact || null,
+      dj_id: formData.dj_id || null,
+      dj_name: formData.dj_name || null,
+      status: 'prospecção',
+    }
+
+    try {
+      const res = await fetch('/api/prospeccoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        throw new Error(err?.error || 'Failed to save')
+      }
+
+      await res.json()
+      toast({ title: 'Prospecção salva' })
+      onSave()
+    } catch (err) {
+      console.error('Failed to save prospecção to API, falling back to localStorage', err)
+      try {
+        const raw = localStorage.getItem('prospeccoes')
+        const existing: Prospeccao[] = raw ? JSON.parse(raw) : []
+        const newRow: Prospeccao = {
+          id: Date.now().toString(),
+          title: payload.title || '',
+          description: payload.description || null,
+          location: payload.location || null,
+          data: payload.data || null,
+          budget: payload.budget || null,
+          client_name: payload.client_name || null,
+          client_contact: payload.client_contact || null,
+          dj_id: payload.dj_id || null,
+          dj_name: payload.dj_name || null,
+          status: 'prospecção',
+          created_at: new Date().toISOString(),
+        }
+        const updated = [newRow, ...existing]
+        localStorage.setItem('prospeccoes', JSON.stringify(updated))
+        toast({ title: 'Prospecção salva localmente (fallback)' })
+        onSave()
+      } catch (e) {
+        console.error(e)
+        toast({ title: 'Erro ao salvar prospecção', variant: 'destructive' })
+      }
+    }
+  }
+
+  return (
+    <DialogContent className="sm:max-w-[600px]">
+      <DialogHeader>
+        <DialogTitle>Nova Prospecção</DialogTitle>
+        <DialogDescription>Crie uma prospecção de data de evento</DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label>Título *</Label>
+          <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Cliente *</Label>
+            <Input value={formData.client_name} onChange={(e) => setFormData({ ...formData, client_name: e.target.value })} />
+          </div>
+
+          <div>
+            <Label>Contato</Label>
+            <Input value={formData.client_contact} onChange={(e) => setFormData({ ...formData, client_contact: e.target.value })} placeholder="Telefone ou email" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label>DJ (Selecione ou digite)</Label>
+            {djs.length > 0 ? (
+              <Select value={formData.dj_id || ""} onValueChange={(v) => setFormData({ ...formData, dj_id: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um DJ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nenhum</SelectItem>
+                  {djs.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input value={formData.dj_name} onChange={(e) => setFormData({ ...formData, dj_name: e.target.value })} placeholder="Nome do DJ" />
+            )}
+          </div>
+
+          <div>
+            <Label>Produtor (Selecione ou digite)</Label>
+            {producers.length > 0 ? (
+              <Select value={formData.producer_name || ""} onValueChange={(v) => setFormData({ ...formData, producer_name: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um produtor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nenhum</SelectItem>
+                  {producers.map((p) => (
+                    <SelectItem key={p.id} value={p.label}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input value={formData.producer_name} onChange={(e) => setFormData({ ...formData, producer_name: e.target.value })} placeholder="Nome do produtor" />
+            )}
+          </div>
+
+          <div>
+            <Label>Data</Label>
+            <Input type="date" value={formData.data || ""} onChange={(e) => setFormData({ ...formData, data: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label>Local</Label>
+            <Input value={formData.location || ""} onChange={(e) => setFormData({ ...formData, location: e.target.value })} />
+          </div>
+          <div>
+            <Label>Orçamento (R$)</Label>
+            <Input type="number" value={formData.budget ? String(formData.budget) : ""} onChange={(e) => setFormData({ ...formData, budget: e.target.value ? Number(e.target.value) : undefined })} />
+          </div>
+          <div>
+            <Label>Contato do cliente</Label>
+            <Input value={formData.client_contact || ""} onChange={(e) => setFormData({ ...formData, client_contact: e.target.value })} />
+          </div>
+        </div>
+
+        <div>
+          <Label>Descrição</Label>
+          <Textarea value={formData.description || ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={handleSubmit} className="bg-gradient-to-r from-purple-500 to-pink-500">Salvar</Button>
       </DialogFooter>
     </DialogContent>
   )
