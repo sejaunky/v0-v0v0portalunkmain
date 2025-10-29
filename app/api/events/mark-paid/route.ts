@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSql } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,19 +9,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "eventId is required" }, { status: 400 })
     }
 
-    const sql = getSql()
-    const result = await sql`
-      UPDATE events
-      SET payment_status = 'paid', updated_at = NOW()
-      WHERE id = ${eventId}
-      RETURNING *
-    `
+    if (!isSupabaseConfigured()) return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
 
-    if (result.length === 0) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
-    }
+    const { data, error } = await supabase.from('events').update({ payment_status: 'paid', updated_at: new Date().toISOString() }).eq('id', eventId).select()
+    if (error) throw error
 
-    return NextResponse.json({ success: true, event: result[0] })
+    if (!data || data.length === 0) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+
+    return NextResponse.json({ success: true, event: data[0] })
   } catch (error) {
     console.error("Error marking event as paid:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
