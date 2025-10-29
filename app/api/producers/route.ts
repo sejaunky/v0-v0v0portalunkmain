@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
 
@@ -97,32 +97,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Producer ID is required" }, { status: 400 })
     }
 
-    const sql = getSql()
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
 
-    if (!sql) {
-      throw new Error("Failed to initialize database connection")
-    }
+    const { data: result, error } = await supabase.from('producers').update([{ name: payload.name, email: payload.email, company_name: payload.company, phone: payload.phone, status: payload.status, avatar_url: payload.avatar_url, cnpj: payload.cnpj, address: payload.address, notes: payload.notes }]).eq('id', id).select()
+    if (error) throw error
 
-    const result = await sql`
-      UPDATE producers
-      SET
-        name = ${payload.name},
-        email = ${payload.email},
-        company_name = ${payload.company},
-        phone = ${payload.phone},
-        status = ${payload.status},
-        avatar_url = ${payload.avatar_url},
-        cnpj = ${payload.cnpj},
-        address = ${payload.address},
-        notes = ${payload.notes},
-        updated_at = NOW()
-      WHERE id = ${id}
-      RETURNING *
-    `
-
-    if (result.length === 0) {
-      return NextResponse.json({ error: "Producer not found" }, { status: 404 })
-    }
+    if (!result || result.length === 0) return NextResponse.json({ error: 'Producer not found' }, { status: 404 })
 
     const updated = result[0]
 
