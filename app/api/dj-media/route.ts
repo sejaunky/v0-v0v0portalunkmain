@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSql, isNeonConfigured } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function GET(request: NextRequest) {
   try {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({ media: [] }, { status: 200 })
     }
 
@@ -14,18 +14,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "DJ ID is required" }, { status: 400 })
     }
 
-    const sql = getSql()
-    if (!sql) {
-      throw new Error("Failed to initialize database connection")
-    }
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
 
-    const media = await sql`
-      SELECT * FROM dj_media
-      WHERE dj_id = ${djId}
-      ORDER BY created_at DESC
-    `
+    const { data: media, error } = await supabase.from('dj_media').select('*').eq('dj_id', djId).order('created_at', { ascending: false })
+    if (error) throw error
 
-    return NextResponse.json({ media })
+    return NextResponse.json({ media: media || [] })
   } catch (error) {
     console.error("Failed to fetch DJ media:", error)
     return NextResponse.json({ media: [] }, { status: 200 })
@@ -34,29 +29,26 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
 
     const payload = await request.json()
-    const sql = getSql()
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
 
-    if (!sql) {
-      throw new Error("Failed to initialize database connection")
-    }
+    const { data: result, error } = await supabase.from('dj_media').insert([{
+      dj_id: payload.dj_id,
+      title: payload.title,
+      description: payload.description,
+      category: payload.category,
+      file_url: payload.file_url,
+      external_link: payload.external_link,
+    }]).select()
 
-    const result = await sql`
-      INSERT INTO dj_media (
-        dj_id, title, description, category, file_url, external_link
-      )
-      VALUES (
-        ${payload.dj_id}, ${payload.title}, ${payload.description},
-        ${payload.category}, ${payload.file_url}, ${payload.external_link}
-      )
-      RETURNING *
-    `
+    if (error) throw error
 
-    return NextResponse.json({ media: result[0] })
+    return NextResponse.json({ media: result && result[0] })
   } catch (error) {
     console.error("Failed to create DJ media:", error)
     return NextResponse.json(
@@ -71,7 +63,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
 
@@ -82,15 +74,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Media ID is required" }, { status: 400 })
     }
 
-    const sql = getSql()
-    if (!sql) {
-      throw new Error("Failed to initialize database connection")
-    }
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
 
-    await sql`
-      DELETE FROM dj_media
-      WHERE id = ${id}
-    `
+    const { error } = await supabase.from('dj_media').delete().eq('id', id)
+    if (error) throw error
 
     return NextResponse.json({ success: true })
   } catch (error) {
