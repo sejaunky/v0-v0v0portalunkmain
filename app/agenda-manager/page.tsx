@@ -616,37 +616,69 @@ function ProspeccaoDialog({ onClose, onSave }: { onClose: () => void; onSave: ()
     }
   }, [])
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.title || !formData.client_name) {
       toast({ title: "Preencha título e cliente", variant: "destructive" })
       return
     }
 
+    const payload = {
+      title: formData.title,
+      description: formData.description || null,
+      location: formData.location || null,
+      data: formData.data || null,
+      budget: typeof formData.budget === 'number' ? formData.budget : formData.budget ? Number(formData.budget) : null,
+      client_name: formData.client_name || null,
+      client_contact: formData.client_contact || null,
+      dj_id: formData.dj_id || null,
+      dj_name: formData.dj_name || null,
+      producer_name: formData.producer_name || null,
+      status: 'prospecção',
+    }
+
     try {
-      const raw = localStorage.getItem("prospeccoes")
-      const existing: Prospeccao[] = raw ? JSON.parse(raw) : []
-      const newRow: Prospeccao = {
-        id: Date.now().toString(),
-        title: formData.title || "",
-        description: formData.description || null,
-        location: formData.location || null,
-        data: formData.data || null,
-        budget: typeof formData.budget === "number" ? formData.budget : formData.budget ? Number(formData.budget) : null,
-        client_name: formData.client_name || null,
-        client_contact: formData.client_contact || null,
-        dj_id: formData.dj_id || null,
-        dj_name: formData.dj_name || null,
-        producer_name: formData.producer_name || null,
-        status: "prospecção",
-        created_at: new Date().toISOString(),
+      const res = await fetch('/api/prospeccoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        throw new Error(err?.error || 'Failed to save')
       }
-      const updated = [newRow, ...existing]
-      localStorage.setItem("prospeccoes", JSON.stringify(updated))
-      toast({ title: "Prospecção salva" })
+
+      await res.json()
+      toast({ title: 'Prospecção salva' })
       onSave()
     } catch (err) {
-      console.error(err)
-      toast({ title: "Erro ao salvar prospecção", variant: "destructive" })
+      console.error('Failed to save prospecção to API, falling back to localStorage', err)
+      try {
+        const raw = localStorage.getItem('prospeccoes')
+        const existing: Prospeccao[] = raw ? JSON.parse(raw) : []
+        const newRow: Prospeccao = {
+          id: Date.now().toString(),
+          title: payload.title || '',
+          description: payload.description || null,
+          location: payload.location || null,
+          data: payload.data || null,
+          budget: payload.budget || null,
+          client_name: payload.client_name || null,
+          client_contact: payload.client_contact || null,
+          dj_id: payload.dj_id || null,
+          dj_name: payload.dj_name || null,
+          producer_name: payload.producer_name || null,
+          status: 'prospecção',
+          created_at: new Date().toISOString(),
+        }
+        const updated = [newRow, ...existing]
+        localStorage.setItem('prospeccoes', JSON.stringify(updated))
+        toast({ title: 'Prospecção salva localmente (fallback)' })
+        onSave()
+      } catch (e) {
+        console.error(e)
+        toast({ title: 'Erro ao salvar prospecção', variant: 'destructive' })
+      }
     }
   }
 
