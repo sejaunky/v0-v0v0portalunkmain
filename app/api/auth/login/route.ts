@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSql } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
@@ -10,38 +10,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    const sql = getSql()
-
-    // Find user by email
-    const users = await sql`
-      SELECT id, email, password_hash, role, name
-      FROM users
-      WHERE email = ${email}
-      LIMIT 1
-    `
-
-    if (users.length === 0) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
+
+    const supabase = supabaseServer
+    if (!supabase) throw new Error('Failed to initialize Supabase client')
+
+    const { data: users, error } = await supabase.from('users').select('id, email, password_hash, role, name').eq('email', email).limit(1)
+    if (error) throw error
+
+    if (!users || users.length === 0) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
 
     const user = users[0]
 
-    // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password_hash)
+    if (!isValidPassword) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
 
-    if (!isValidPassword) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
-    }
-
-    // Return user data (without password)
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        name: user.name,
-      },
-    })
+    return NextResponse.json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } })
   } catch (error) {
     console.error("Login error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
