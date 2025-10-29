@@ -1,23 +1,22 @@
 // Database connection test utility
-import { getSql } from "./neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function testDatabaseConnection() {
   try {
-    const sql = getSql()
-
-    if (!sql) {
-      return {
-        success: false,
-        error: "DATABASE_URL not configured",
-      }
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: "DATABASE_URL not configured" }
     }
 
-    // Test basic query
-    const result = await sql`SELECT NOW() as current_time, version() as pg_version`
+    const supabase = supabaseServer
+    if (!supabase) return { success: false, error: "Failed to initialize Supabase client" }
+
+    // Try a simple select against a common table
+    const { data, error } = await supabase.from('djs').select('id').limit(1)
+    if (error) throw error
 
     return {
       success: true,
-      data: result[0],
+      data: data?.[0] || null,
       message: "Database connection successful!",
     }
   } catch (error) {
@@ -30,28 +29,25 @@ export async function testDatabaseConnection() {
 
 export async function checkTablesExist() {
   try {
-    const sql = getSql()
-
-    if (!sql) {
-      return {
-        success: false,
-        error: "DATABASE_URL not configured",
-      }
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: "DATABASE_URL not configured" }
     }
 
-    // Check if main tables exist
-    const tables = await sql`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      AND table_type = 'BASE TABLE'
-      ORDER BY table_name
-    `
+    const supabase = supabaseServer
+    if (!supabase) return { success: false, error: "Failed to initialize Supabase client" }
+
+    const tablesToCheck = ['djs','producers','events','prospeccoes','payments','contracts']
+    const found: string[] = []
+
+    for (const t of tablesToCheck) {
+      const { error } = await supabase.from(t).select('id').limit(1)
+      if (!error) found.push(t)
+    }
 
     return {
       success: true,
-      tables: tables.map((t) => t.table_name),
-      message: `Found ${tables.length} tables`,
+      tables: found,
+      message: `Found ${found.length} known tables`,
     }
   } catch (error) {
     return {
