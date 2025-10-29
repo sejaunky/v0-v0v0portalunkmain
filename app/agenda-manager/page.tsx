@@ -632,7 +632,6 @@ function ProspeccaoDialog({ onClose, onSave }: { onClose: () => void; onSave: ()
       client_contact: formData.client_contact || null,
       dj_id: formData.dj_id || null,
       dj_name: formData.dj_name || null,
-      producer_name: formData.producer_name || null,
       status: 'prospecção',
     }
 
