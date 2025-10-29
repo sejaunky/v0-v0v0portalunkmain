@@ -1,18 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSql, isNeonConfigured } from "@/lib/neon"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function GET() {
   try {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({ prospeccoes: [], warning: "Database not configured" }, { status: 200 })
     }
 
-    const sql = getSql()
-    if (!sql) throw new Error("Failed to initialize database connection")
+    const supabase = supabaseServer
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
 
-    const rows = await sql`SELECT * FROM prospeccoes ORDER BY created_at DESC`
+    const { data, error } = await supabase.from('prospeccoes').select('*').order('created_at', { ascending: false })
+    if (error) throw error
 
-    return NextResponse.json({ prospeccoes: rows })
+    return NextResponse.json({ prospeccoes: data || [] })
   } catch (error) {
     console.error("Failed to fetch prospeccoes:", error)
     return NextResponse.json(
@@ -24,26 +25,30 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
 
     const payload = await request.json()
-    const sql = getSql()
-    if (!sql) throw new Error("Failed to initialize database connection")
+    const supabase = supabaseServer
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
 
-    const result = await sql`
-      INSERT INTO prospeccoes (
-        title, description, location, data, budget, client_name, client_contact,
-        dj_id, dj_name, status, created_at
-      ) VALUES (
-        ${payload.title}, ${payload.description || null}, ${payload.location || null}, ${payload.data || null}, ${payload.budget || null},
-        ${payload.client_name || null}, ${payload.client_contact || null}, ${payload.dj_id || null}, ${payload.dj_name || null},
-        ${payload.status || 'prospecção'}, NOW()
-      ) RETURNING *
-    `
+    const { data: result, error } = await supabase.from('prospeccoes').insert([{
+      title: payload.title,
+      description: payload.description || null,
+      location: payload.location || null,
+      data: payload.data || null,
+      budget: payload.budget || null,
+      client_name: payload.client_name || null,
+      client_contact: payload.client_contact || null,
+      dj_id: payload.dj_id || null,
+      dj_name: payload.dj_name || null,
+      status: payload.status || 'prospecção',
+    }]).select()
 
-    return NextResponse.json({ prospeccao: result[0] })
+    if (error) throw error
+
+    return NextResponse.json({ prospeccao: result && result[0] })
   } catch (error) {
     console.error("Failed to create prospeccao:", error)
     return NextResponse.json(
