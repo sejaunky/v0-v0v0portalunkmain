@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    if (!isNeonConfigured()) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
 
@@ -104,12 +104,6 @@ export async function PUT(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: "DJ ID is required" }, { status: 400 })
-    }
-
-    const sql = getSql()
-
-    if (!sql) {
-      throw new Error("Failed to initialize database connection")
     }
 
     // Normalize status
@@ -126,35 +120,35 @@ export async function PUT(request: NextRequest) {
       payload.status = statusMap[normalizedStatus] || "ativo"
     }
 
-    const result = await sql`
-      UPDATE djs
-      SET
-        artist_name = ${payload.artist_name},
-        real_name = ${payload.real_name},
-        email = ${payload.email},
-        genre = ${payload.genre},
-        base_price = ${payload.base_price},
-        instagram_url = ${payload.instagram_url},
-        youtube_url = ${payload.youtube_url},
-        tiktok_url = ${payload.tiktok_url},
-        soundcloud_url = ${payload.soundcloud_url},
-        birth_date = ${payload.birth_date},
-        status = ${payload.status},
-        is_active = ${payload.is_active},
-        avatar_url = ${payload.avatar_url},
-        phone = ${payload.phone},
-        cpf = ${payload.cpf},
-        pix_key = ${payload.pix_key},
-        bank_name = ${payload.bank_name},
-        bank_agency = ${payload.bank_agency},
-        bank_account = ${payload.bank_account},
-        notes = ${payload.notes},
-        updated_at = NOW()
-      WHERE id = ${id}
-      RETURNING *
-    `
+    const supabase = supabaseServer
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
 
-    if (result.length === 0) {
+    const { data: result, error } = await supabase.from('djs').update([{
+      artist_name: payload.artist_name,
+      real_name: payload.real_name,
+      email: payload.email,
+      genre: payload.genre,
+      base_price: payload.base_price,
+      instagram_url: payload.instagram_url,
+      youtube_url: payload.youtube_url,
+      tiktok_url: payload.tiktok_url,
+      soundcloud_url: payload.soundcloud_url,
+      birth_date: payload.birth_date,
+      status: payload.status,
+      is_active: payload.is_active,
+      avatar_url: payload.avatar_url,
+      phone: payload.phone,
+      cpf: payload.cpf,
+      pix_key: payload.pix_key,
+      bank_name: payload.bank_name,
+      bank_agency: payload.bank_agency,
+      bank_account: payload.bank_account,
+      notes: payload.notes,
+    }]).eq('id', id).select()
+
+    if (error) throw error
+
+    if (!result || result.length === 0) {
       return NextResponse.json({ error: "DJ not found" }, { status: 404 })
     }
 
