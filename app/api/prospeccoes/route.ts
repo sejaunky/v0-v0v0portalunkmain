@@ -7,7 +7,7 @@ export async function GET() {
       return NextResponse.json({ prospeccoes: [], warning: "Database not configured" }, { status: 200 })
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error("Failed to initialize Supabase client")
 
     const { data, error } = await supabase.from('prospeccoes').select('*').order('created_at', { ascending: false })
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = await request.json()
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error("Failed to initialize Supabase client")
 
     const { data: result, error } = await supabase.from('prospeccoes').insert([{

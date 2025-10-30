@@ -7,7 +7,7 @@ export async function GET() {
       return NextResponse.json({ warning: 'Database not configured', data: [] }, { status: 200 })
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     // Fetch paid payments in the last 6 months
