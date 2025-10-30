@@ -3,61 +3,49 @@
 import Image from "next/image"
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { supabase } from "@/lib/supabaseClient"
+import { login } from "@/app/actions/auth"
 import BorderBeam from "@/components/BorderBeam"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    // If the user provided only the local-part, append @unk
+    setError("")
+    setLoading(true)
+
     const emailToUse = String(email).includes("@") ? email : `${email}@unk`
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: emailToUse, password })
-      if (error) {
-        setError(error.message)
+      const result = await login(emailToUse, password)
+
+      if (!result || !result.success) {
+        setError(result?.error || 'Falha ao efetuar login')
+        setLoading(false)
         return
       }
 
-      const userId = data?.user?.id
-      if (!userId) {
-        setError('Falha ao obter usuário após login')
+      const role = result.user?.role || null
+
+      if (role === 'admin') {
+        window.location.href = '/admin/dashboard'
         return
       }
 
-      // Fetch profile role via internal API
-      try {
-        const res = await fetch(`/api/auth/profile?userId=${encodeURIComponent(userId)}`)
-        if (res.ok) {
-          const json = await res.json()
-          const role = json?.profile?.role || null
-          if (role === 'admin') {
-            window.location.href = '/admin/dashboard'
-            return
-          }
-          if (role === 'producer') {
-            window.location.href = '/producer-user/dashboard'
-            return
-          }
-          // fallback: go to root or DJ area
-          window.location.href = '/'
-          return
-        } else {
-          // If profile fetch failed, fallback to root
-          window.location.href = '/'
-          return
-        }
-      } catch (err) {
-        console.error('Failed to fetch profile role:', err)
-        window.location.href = '/'
+      if (role === 'producer') {
+        window.location.href = '/producer-user/dashboard'
         return
       }
+
+      // fallback
+      window.location.href = '/'
     } catch (err: any) {
       setError(err?.message || String(err))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -111,9 +99,10 @@ export default function LoginPage() {
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button
             type="submit"
-            className="bg-white text-black rounded-xl py-2 font-semibold hover:bg-gray-300 transition"
+            disabled={loading}
+            className="bg-white text-black rounded-xl py-2 font-semibold hover:bg-gray-300 transition disabled:opacity-50"
           >
-            Entrar
+            {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
       </BorderBeam>
