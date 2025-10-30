@@ -7,7 +7,7 @@ export async function GET() {
       return NextResponse.json({ producers: [], warning: "Database not configured" }, { status: 200 })
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error("Failed to initialize Supabase client")
 
     const { data, error } = await supabase.from('producers').select('*').order('created_at', { ascending: false })
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = await request.json()
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error("Failed to initialize Supabase client")
 
     const { data: result, error } = await supabase.from('producers').insert([{
@@ -97,7 +97,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Producer ID is required" }, { status: 400 })
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const { data: result, error } = await supabase.from('producers').update([{ name: payload.name, email: payload.email, company_name: payload.company, phone: payload.phone, status: payload.status, avatar_url: payload.avatar_url, cnpj: payload.cnpj, address: payload.address, notes: payload.notes }]).eq('id', id).select()

@@ -8,7 +8,7 @@ export const validateContractForSignature = async (
 }> => {
   try {
     if (!isSupabaseConfigured()) return { canSign: false, error: "Database not configured" }
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) return { canSign: false, error: "Database not configured" }
 
     const { data, error } = await supabase

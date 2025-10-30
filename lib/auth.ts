@@ -23,7 +23,7 @@ export const authOptions: NextAuthOptions = {
           console.error("[v0] Database not configured")
           return false
         }
-        const supabase = supabaseServer
+        const supabase = await supabaseServer()
         if (!supabase) return false
 
         const { data: existingUser, error: existingError } = await supabase.from('users').select('id, role').eq('email', user.email).limit(1)
@@ -70,7 +70,7 @@ export const authOptions: NextAuthOptions = {
             console.error("[v0] Database not configured")
             return session
           }
-          const supabase = supabaseServer
+          const supabase = await supabaseServer()
           if (!supabase) return session
 
           const { data, error } = await supabase

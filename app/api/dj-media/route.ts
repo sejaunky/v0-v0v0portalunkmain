@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "DJ ID is required" }, { status: 400 })
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const { data: media, error } = await supabase.from('dj_media').select('*').eq('dj_id', djId).order('created_at', { ascending: false })
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = await request.json()
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const { data: result, error } = await supabase.from('dj_media').insert([{
@@ -74,7 +74,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Media ID is required" }, { status: 400 })
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const { error } = await supabase.from('dj_media').delete().eq('id', id)

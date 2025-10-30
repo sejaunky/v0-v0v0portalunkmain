@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(tempPassword, 10)
 
     if (!isSupabaseConfigured()) return NextResponse.json({ error: "Database not configured" }, { status: 503 })
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const { error } = await supabase.from('users').update({ password: hashedPassword, updated_at: new Date().toISOString() }).eq('email', email)

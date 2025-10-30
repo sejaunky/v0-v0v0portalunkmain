@@ -8,7 +8,7 @@ export async function GET() {
       return NextResponse.json({ djs: [], warning: "Database not configured" }, { status: 200 })
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error("Failed to initialize Supabase client")
 
     // Try ordering by artist_name, fallback to name
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = await request.json()
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error("Failed to initialize Supabase client")
 
     // Normalize status
@@ -120,7 +120,7 @@ export async function PUT(request: NextRequest) {
       payload.status = statusMap[normalizedStatus] || "ativo"
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error("Failed to initialize Supabase client")
 
     const { data: result, error } = await supabase.from('djs').update([{
