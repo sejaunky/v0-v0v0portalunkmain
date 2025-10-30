@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const { data: users, error } = await supabase.from('users').select('id, email, password_hash, role, name').eq('email', email).limit(1)

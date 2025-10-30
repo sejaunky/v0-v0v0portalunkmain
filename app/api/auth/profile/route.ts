@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!isSupabaseConfigured()) return NextResponse.json({ error: "Database not configured" }, { status: 503 })
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const { data, error } = await supabase.from('profiles').select('id, full_name, email, phone, avatar_url, role, created_at').eq('id', userId).limit(1)
