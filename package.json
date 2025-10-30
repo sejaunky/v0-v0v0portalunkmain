@@ -9,7 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@auth/core": "^0.41.1",
+    "@auth/core": "0.34.3",
     "@emotion/is-prop-valid": "latest",
     "@eslint/js": "latest",
     "@hookform/resolvers": "^3.9.1",

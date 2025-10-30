@@ -330,3 +330,4 @@ const ProducerDashboard = () => {
   )
 }
 
+export default ProducerDashboard

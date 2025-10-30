@@ -1,5 +1,9 @@
 "use server"
 
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase.server"
+import bcrypt from "bcryptjs"
+import { revalidatePath } from "next/cache"
+
 export interface DJ {
   id: number
   name: string
@@ -32,99 +36,230 @@ export interface DJ {
 
 export async function getDJs(): Promise<DJ[]> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/djs`, {
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch DJs")
+    if (!isSupabaseConfigured()) {
+      console.warn("Supabase not configured.")
+      return []
     }
 
-    const data = await response.json()
-    return data.djs || []
+    const supabase = await supabaseServer()
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
+
+    let { data, error } = await supabase
+      .from('djs')
+      .select('*')
+      .order('artist_name', { ascending: true })
+
+    if (error && String(error.message || '').toLowerCase().includes('column')) {
+      const fallback = await supabase
+        .from('djs')
+        .select('*, name as artist_name')
+        .order('name', { ascending: true })
+      data = fallback.data
+    }
+
+    return data || []
   } catch (error) {
-    console.error("[v0] Error fetching DJs:", error)
+    console.error("Failed to fetch DJs:", error)
     return []
   }
 }
 
 export async function getDJById(id: number): Promise<DJ | null> {
   try {
-    const djs = await getDJs()
-    return djs.find((dj) => dj.id === id) || null
+    if (!isSupabaseConfigured()) {
+      return null
+    }
+
+    const supabase = await supabaseServer()
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
+
+    const { data, error } = await supabase
+      .from('djs')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+
+    return data
   } catch (error) {
-    console.error("[v0] Error fetching DJ:", error)
+    console.error("Error fetching DJ:", error)
     return null
   }
 }
 
-export async function createDJ(data: Partial<DJ>): Promise<{ success: boolean; error?: string; dj?: DJ }> {
+export async function createDJ(data: Partial<DJ> & { password?: string }): Promise<{ success: boolean; error?: string; dj?: DJ }> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/djs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: "Database not configured" }
+    }
+
+    const supabase = await supabaseServer()
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
+
+    const statusMap: Record<string, string> = {
+      ativo: "ativo",
+      inativo: "inativo",
+      ocupado: "ocupado",
+      active: "ativo",
+      inactive: "inativo",
+      busy: "ocupado",
+    }
+
+    const normalizedStatus = data.status ?
+      (statusMap[data.status.toLowerCase()] || "ativo") :
+      "ativo"
+
+    if (data.email && data.password) {
+      try {
+        const { data: existingUsers } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', data.email)
+          .limit(1)
+
+        if (!existingUsers || existingUsers.length === 0) {
+          const passwordHash = await bcrypt.hash(data.password, 10)
+          const { error: userErr } = await supabase
+            .from('users')
+            .insert([{
+              email: data.email,
+              password_hash: passwordHash,
+              name: data.name || data.artistic_name,
+              role: 'dj'
+            }])
+
+          if (userErr) {
+            console.error('Failed to create user for DJ:', userErr)
+          }
+        }
+      } catch (err) {
+        console.error('Error creating user for DJ:', err)
+      }
+    }
+
+    const { data: result, error } = await supabase
+      .from('djs')
+      .insert([{
         artist_name: data.artistic_name,
         real_name: data.name,
         email: data.email,
-        password: (data as any).password,
-        phone: data.phone,
-        cpf: data.cpf,
-        notes: data.bio,
+        genre: (data as any).genre,
+        base_price: (data as any).base_price,
         instagram_url: data.instagram,
         youtube_url: data.youtube,
+        tiktok_url: (data as any).tiktok,
         soundcloud_url: data.soundcloud,
-        avatar_url: data.profile_image_url,
-        status: data.status || "ativo",
-      }),
-    })
+        birth_date: (data as any).birth_date,
+        status: normalizedStatus,
+        is_active: (data as any).is_active !== false,
+        avatar_url: data.profile_image_url || null,
+        phone: data.phone || null,
+        cpf: data.cpf || null,
+        pix_key: data.pix_key || null,
+        bank_name: data.bank_name || null,
+        bank_agency: data.bank_agency || null,
+        bank_account: data.bank_account || null,
+        notes: data.bio || null,
+      }])
+      .select()
 
-    if (!response.ok) {
-      const error = await response.json()
-      return { success: false, error: error.error || "Failed to create DJ" }
-    }
+    if (error) throw error
 
-    const result = await response.json()
-    return { success: true, dj: result.dj }
+    revalidatePath('/admin/dashboard/djs')
+
+    return { success: true, dj: result && result[0] }
   } catch (error) {
-    console.error("[v0] Error creating DJ:", error)
-    return { success: false, error: "Failed to create DJ" }
+    console.error("Error creating DJ:", error)
+    return { success: false, error: error instanceof Error ? error.message : "Failed to create DJ" }
   }
 }
 
 export async function updateDJ(id: number, data: Partial<DJ>): Promise<{ success: boolean; error?: string }> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/djs`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        id: id.toString(),
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: "Database not configured" }
+    }
+
+    const supabase = await supabaseServer()
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
+
+    const statusMap: Record<string, string> = {
+      ativo: "ativo",
+      inativo: "inativo",
+      ocupado: "ocupado",
+      active: "ativo",
+      inactive: "inativo",
+      busy: "ocupado",
+    }
+
+    const normalizedStatus = data.status ?
+      (statusMap[data.status.toLowerCase()] || data.status) :
+      undefined
+
+    const { data: result, error } = await supabase
+      .from('djs')
+      .update({
         artist_name: data.artistic_name,
         real_name: data.name,
         email: data.email,
-        phone: data.phone,
-        cpf: data.cpf,
-        notes: data.bio,
+        genre: (data as any).genre,
+        base_price: (data as any).base_price,
         instagram_url: data.instagram,
         youtube_url: data.youtube,
+        tiktok_url: (data as any).tiktok,
         soundcloud_url: data.soundcloud,
+        birth_date: (data as any).birth_date,
+        status: normalizedStatus,
+        is_active: (data as any).is_active,
         avatar_url: data.profile_image_url,
-        status: data.status,
-      }),
-    })
+        phone: data.phone,
+        cpf: data.cpf,
+        pix_key: data.pix_key,
+        bank_name: data.bank_name,
+        bank_agency: data.bank_agency,
+        bank_account: data.bank_account,
+        notes: data.bio,
+      })
+      .eq('id', id)
+      .select()
 
-    if (!response.ok) {
-      const error = await response.json()
-      return { success: false, error: error.error || "Failed to update DJ" }
+    if (error) throw error
+
+    if (!result || result.length === 0) {
+      return { success: false, error: "DJ not found" }
     }
+
+    revalidatePath('/admin/dashboard/djs')
 
     return { success: true }
   } catch (error) {
-    console.error("[v0] Error updating DJ:", error)
-    return { success: false, error: "Failed to update DJ" }
+    console.error("Error updating DJ:", error)
+    return { success: false, error: error instanceof Error ? error.message : "Failed to update DJ" }
+  }
+}
+
+export async function deleteDJ(id: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: "Database not configured" }
+    }
+
+    const supabase = await supabaseServer()
+    if (!supabase) throw new Error("Failed to initialize Supabase client")
+
+    const { error } = await supabase
+      .from('djs')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+
+    revalidatePath('/admin/dashboard/djs')
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error deleting DJ:", error)
+    return { success: false, error: error instanceof Error ? error.message : "Failed to delete DJ" }
   }
 }
