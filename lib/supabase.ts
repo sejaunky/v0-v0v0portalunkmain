@@ -15,6 +15,8 @@ export const isSupabaseConfigured = () => {
   return !!(supabaseUrl && supabaseKey);
 };
 
+let supabaseServerInstance: ReturnType<typeof createServerClient> | null = null;
+
 export const getSupabaseServer = async () => {
   if (!isSupabaseConfigured()) {
     return null;
@@ -44,4 +46,5 @@ export const getSupabaseServer = async () => {
   );
 };
 
-export const supabaseServer = getSupabaseServer();
+// Async getter for use in async contexts (most API routes)
+export { getSupabaseServer as supabaseServer };
