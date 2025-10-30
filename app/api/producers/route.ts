@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase.server"
+import bcrypt from "bcryptjs"
 
 export async function GET() {
   try {
@@ -45,6 +46,20 @@ export async function POST(request: NextRequest) {
     const payload = await request.json()
     const supabase = await supabaseServer()
     if (!supabase) throw new Error("Failed to initialize Supabase client")
+
+    // If email+password provided, create a user record in users table
+    if (payload.email && payload.password) {
+      try {
+        const { data: existingUsers } = await supabase.from('users').select('id').eq('email', payload.email).limit(1)
+        if (!existingUsers || existingUsers.length === 0) {
+          const passwordHash = await bcrypt.hash(String(payload.password), 10)
+          const { data: newUsers, error: userErr } = await supabase.from('users').insert([{ email: payload.email, password_hash: passwordHash, name: payload.name, role: 'producer' }]).select()
+          if (userErr) console.error('Failed to create user for producer:', userErr)
+        }
+      } catch (err) {
+        console.error('Error creating user for producer:', err)
+      }
+    }
 
     const { data: result, error } = await supabase.from('producers').insert([{
       name: payload.name,

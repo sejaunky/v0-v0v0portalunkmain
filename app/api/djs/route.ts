@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase.server"
+import bcrypt from "bcryptjs"
 
 export async function GET() {
   try {
@@ -54,6 +55,24 @@ export async function POST(request: NextRequest) {
       }
       const normalizedStatus = payload.status.toLowerCase()
       payload.status = statusMap[normalizedStatus] || "ativo"
+    }
+
+    // If an email+password were provided, create a user entry in the users table
+    if (payload.email && payload.password) {
+      try {
+        // Check if user exists
+        const { data: existingUsers } = await supabase.from('users').select('id').eq('email', payload.email).limit(1)
+        if (!existingUsers || existingUsers.length === 0) {
+          const passwordHash = await bcrypt.hash(String(payload.password), 10)
+          const { data: newUsers, error: userErr } = await supabase.from('users').insert([{ email: payload.email, password_hash: passwordHash, name: payload.real_name || payload.artist_name, role: 'dj' }]).select()
+          if (userErr) {
+            console.error('Failed to create user for DJ:', userErr)
+            // don't throw here — proceed with DJ creation but log
+          }
+        }
+      } catch (err) {
+        console.error('Error creating user for DJ:', err)
+      }
     }
 
     const { data: result, error } = await supabase.from('djs').insert([{

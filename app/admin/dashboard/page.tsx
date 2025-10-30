@@ -4,6 +4,9 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { LogOut } from "lucide-react"
+import { createClient } from "@/lib/supabase"
 import MetricsCard from "@/components/admin-dashboard/MetricsCard"
 import SummaryTable from "@/components/admin-dashboard/SummaryTable"
 import PaymentReviews from "@/components/admin-dashboard/PaymentReviews"
@@ -14,7 +17,7 @@ import { useSupabaseData as useNeonData } from "@/hooks/useSupabaseData"
 
 const parseEventDate = (value: string | number | Date) => {
   if (!value) return null
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [year, month, day] = value.split("-").map(Number)
     if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
       return null
@@ -27,19 +30,20 @@ const parseEventDate = (value: string | number | Date) => {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-const normalizeToStartOfDay = (date) => {
+const normalizeToStartOfDay = (date: string | number | Date) => {
   const normalized = new Date(date)
   normalized.setHours(0, 0, 0, 0)
   return normalized
 }
 
-const formatEventDate = (value, options) => {
+const formatEventDate = (value: string | number | Date, options?: Intl.DateTimeFormatOptions) => {
   const date = parseEventDate(value)
   if (!date) return null
-  return new Intl.DateTimeFormat("pt-BR", options || { day: "2-digit", month: "2-digit", year: "numeric" }).format(date)
+  const defaultOptions: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", year: "numeric" }
+  return new Intl.DateTimeFormat("pt-BR", options || defaultOptions).format(date)
 }
 
-const resolveEventDjName = (event) => {
+const resolveEventDjName = (event: any) => {
   if (!event) return "DJ não informado"
 
   const directDj = event.dj
@@ -78,6 +82,7 @@ const Home = () => {
   const [isHydrated, setIsHydrated] = useState(false)
   const { user } = useAuth()
   const router = useRouter()
+  const supabase = createClient()
 
   const { data: metrics, loading: metricsLoading } = useNeonData(analyticsService, "getStats", [], [])
 
@@ -102,10 +107,16 @@ const Home = () => {
   }, [])
 
   const eventStatusSummary = useMemo(() => {
-    const eventsList = events || []
+    // Normalize events: the API sometimes returns an object like { events: [...] }
+    // or wraps arrays under other keys. Ensure we always work with an array here.
+    const eventsList = Array.isArray(events)
+      ? events
+      : events && typeof events === "object"
+      ? (Object.values(events).find((v) => Array.isArray(v)) as any) || []
+      : []
     const total = eventsList.length
     const counts = eventsList.reduce(
-      (acc, event) => {
+      (acc: { confirmed: number; pending: number; completed: number }, event: { status: any }) => {
         const status = String(event?.status || "").toLowerCase()
         if (status === "confirmed") {
           acc.confirmed += 1
@@ -119,7 +130,7 @@ const Home = () => {
       { confirmed: 0, pending: 0, completed: 0 },
     )
 
-    const toPercentage = (value) => (total > 0 ? Math.round((value / total) * 100) : 0)
+    const toPercentage = (value: number) => (total > 0 ? Math.round((value / total) * 100) : 0)
 
     return {
       total,
@@ -135,7 +146,13 @@ const Home = () => {
   }, [events])
 
   const upcomingEventsWithin15Days = useMemo(() => {
-    if (!events || events.length === 0) return []
+    const eventsList = Array.isArray(events)
+      ? events
+      : events && typeof events === "object"
+      ? (Object.values(events).find((v) => Array.isArray(v)) as any) || []
+      : []
+
+    if (eventsList.length === 0) return []
 
     const startOfToday = normalizeToStartOfDay(new Date())
     const limit = new Date(startOfToday)
@@ -192,7 +209,7 @@ const Home = () => {
   ]
 
   const contractsData =
-    contracts?.slice(0, 5)?.map((contract) => ({
+    contracts?.slice(0, 5)?.map((contract: { id: any; event: { dj: { name: any }; title: any; producer: { name: any; company_name: any }; cache_value: any; event_date: any }; signed: any; signature_status: any; created_at: any }) => ({
       id: contract?.id,
       dj: contract?.event?.dj?.name || "N/A",
       evento: contract?.event?.title || "N/A",
@@ -241,7 +258,7 @@ const Home = () => {
   ]
 
   const paymentsData =
-    payments?.slice(0, 5)?.map((payment) => ({
+    payments?.slice(0, 5)?.map((payment: { id: any; event: { producer: { name: any; company_name: any }; title: any }; amount: any; paid_at: any; created_at: any; status: string }) => ({
       id: payment?.id,
       produtor: payment?.event?.producer?.name || payment?.event?.producer?.company_name || "N/A",
       evento: payment?.event?.title || "N/A",
@@ -259,7 +276,7 @@ const Home = () => {
   ]
 
   const revenueChartData = useMemo(() => {
-    const monthlyRevenue = {}
+    const monthlyRevenue: { [key: string]: number } = {}
     const now = new Date()
 
     for (let i = 5; i >= 0; i--) {
@@ -267,7 +284,7 @@ const Home = () => {
       const monthKey = date.toLocaleDateString("pt-BR", { month: "short" })
       monthlyRevenue[monthKey] = 0
     }
-    ;(payments || []).forEach((payment) => {
+    ;(payments || []).forEach((payment: { status: string; paid_at: string | number | Date; amount: any }) => {
       if (payment?.status === "paid" && payment?.paid_at) {
         const paymentDate = new Date(payment.paid_at)
         const monthKey = paymentDate.toLocaleDateString("pt-BR", { month: "short" })
@@ -281,10 +298,10 @@ const Home = () => {
   }, [payments])
 
   const djDistributionData = useMemo(() => {
-    const genreCount = {}
-    ;(djs || []).forEach((dj) => {
+    const genreCount: { [key: string]: number } = {}
+    ;(djs || []).forEach((dj: { specialties: any; genre: any }) => {
       const genres = dj?.specialties || [dj?.genre] || ["Outros"]
-      genres.forEach((genre) => {
+      genres.forEach((genre: string | number) => {
         if (genre) {
           genreCount[genre] = (genreCount[genre] || 0) + 1
         }
@@ -318,11 +335,12 @@ const Home = () => {
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            <Icon
-              name="Clock"
-              size={16}
-              style={{ color: "rgba(209, 166, 39, 1)", textShadow: "1px 1px 3px rgba(221, 118, 28, 1)" }}
-            />
+            <div style={{ color: "rgba(209, 166, 39, 1)", textShadow: "1px 1px 3px rgba(221, 118, 28, 1)" }}>
+              <Icon
+                name="Clock"
+                size={16}
+              />
+            </div>
             <span style={{ color: "rgba(250, 161, 72, 1)" }}>
               {isHydrated && currentTime
                 ? currentTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
@@ -330,11 +348,29 @@ const Home = () => {
             </span>
           </div>
           {user && (
-            <div
-              className="glass-card mt-2 sm:mt-0 px-3 py-1.5 rounded-full text-xs sm:text-sm text-blue-300 whitespace-nowrap"
-              style={{ color: "rgba(253, 178, 96, 0.8)" }}
-            >
-              {user?.email}
+            <div className="flex items-center gap-2">
+              <div
+                className="glass-card mt-2 sm:mt-0 px-3 py-1.5 rounded-full text-xs sm:text-sm text-blue-300 whitespace-nowrap"
+                style={{ color: "rgba(253, 178, 96, 0.8)" }}
+              >
+                {user?.email}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await supabase.auth.signOut()
+                  } catch (err) {
+                    console.error('Sign out error:', err)
+                  }
+                  router.push('/login')
+                }}
+                className="ml-2"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sair
+              </Button>
             </div>
           )}
         </div>
@@ -462,7 +498,7 @@ const Home = () => {
             const recebido = sum(paid)
             const pendente = sum(pendingAll)
             const comissao = recebido * 0.2
-            const formatCurrency = (amount) =>
+            const formatCurrency = (amount: number) =>
               new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount || 0)
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

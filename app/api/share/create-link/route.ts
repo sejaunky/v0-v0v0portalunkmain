@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase.server"
 import crypto from "crypto"
 
 export async function POST(request: NextRequest) {

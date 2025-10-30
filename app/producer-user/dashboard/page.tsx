@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar-circles"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
@@ -27,7 +27,7 @@ const ProducerDashboard = () => {
   const [contractedDJs, setContractedDJs] = useState<ContractedDJ[]>([])
   const [loading, setLoading] = useState(true)
   const [producerRecord, setProducerRecord] = useState<ProducerRecord | null>(null)
-  const { user, userProfile, logout } = useAuth()
+  const { user, userProfile } = useAuth()
   const router = useRouter()
   const supabase = createClient()
 
@@ -182,13 +182,12 @@ const ProducerDashboard = () => {
 
   const handleSignOut = useCallback(async () => {
     try {
-      await logout()
-      router.push("/auth/login")
+      await supabase.auth.signOut()
     } catch (error) {
       console.error("Error during logout:", error instanceof Error ? error.message : error)
-      router.push("/auth/login")
     }
-  }, [logout, router])
+    router.push("/login")
+  }, [router, supabase])
 
   if (loading) {
     return (
@@ -229,7 +228,7 @@ const ProducerDashboard = () => {
               <div>
                 <h1 className="text-xl font-bold gradient-text">Bem-vindo(a) ao Portal UNK</h1>
                 <p className="text-sm text-muted-foreground">
-                  Logado como Produtor(a) {profile?.fullName || profile?.email?.split("@")[0] || "Produtor"}
+                  Logado como Produtor(a) {user?.email?.split("@")[0] || "Produtor"}
                 </p>
               </div>
             </div>
@@ -238,7 +237,7 @@ const ProducerDashboard = () => {
               <Avatar className="h-10 w-10">
                 <AvatarImage src={producerRecord?.avatar_url ?? undefined} />
                 <AvatarFallback className="bg-primary text-primary-foreground">
-                  {(profile?.fullName?.[0] || profile?.email?.[0] || "P").toUpperCase()}
+                  {(user?.email?.[0] || "P").toUpperCase()}
                 </AvatarFallback>
               </Avatar>
 

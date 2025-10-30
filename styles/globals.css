@@ -1,6 +1,12 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-
+@keyframes border-beam {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+.animate-border-beam {
+  background-size: 200% 200%;
+}
 @custom-variant dark (&:is(.dark *));
 
 :root {

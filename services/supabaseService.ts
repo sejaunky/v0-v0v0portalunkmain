@@ -5,7 +5,20 @@ const makeCollectionWrapper = (baseApiPath: string) => ({
     const res = await fetch(baseApiPath)
     if (!res.ok) return []
     const json = await res.json().catch(() => null)
-    return json?.djs || json?.producers || json?.prospeccoes || json || []
+    if (!json) return []
+
+    // If the response is already an array, return it
+    if (Array.isArray(json)) return json
+
+    // If the response is an object that wraps the array (e.g. { events: [...] }),
+    // return the first array value found. Fall back to known keys for compatibility.
+    if (typeof json === "object") {
+      const arrayValue = Object.values(json).find((v) => Array.isArray(v))
+      if (arrayValue) return arrayValue as any
+      return json?.djs || json?.producers || json?.prospeccoes || json?.events || json?.payments || json?.contracts || json || []
+    }
+
+    return []
   },
   async getById(id: string) {
     const res = await fetch(`${baseApiPath}/${id}`)

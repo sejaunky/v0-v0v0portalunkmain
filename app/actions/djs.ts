@@ -69,6 +69,7 @@ export async function createDJ(data: Partial<DJ>): Promise<{ success: boolean; e
         artist_name: data.artistic_name,
         real_name: data.name,
         email: data.email,
+        password: (data as any).password,
         phone: data.phone,
         cpf: data.cpf,
         notes: data.bio,

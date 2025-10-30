@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { isSupabaseConfigured } from "@/lib/supabase"
+import { isSupabaseConfigured } from "@/lib/supabase.server"
 import { eventService } from "@/services/supabaseService"
 
 export async function GET() {

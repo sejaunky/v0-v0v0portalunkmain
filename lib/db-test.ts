@@ -1,5 +1,5 @@
 // Database connection test utility
-import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase.server"
 
 export async function testDatabaseConnection() {
   try {

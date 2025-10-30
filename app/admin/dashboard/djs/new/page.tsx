@@ -28,6 +28,7 @@ export default function NewDJPage() {
     name: "",
     artistic_name: "",
     email: "",
+    password: "",
     phone: "",
     cpf: "",
     bio: "",
@@ -99,6 +100,11 @@ export default function NewDJPage() {
           .split(",")
           .map((e) => e.trim())
           .filter(Boolean),
+      }
+
+      // If user provided only the local-part (ex: "joao"), append @unk
+      if (data.email && !String(data.email).includes("@")) {
+        ;(data as any).email = `${String(data.email).trim()}@unk`
       }
 
       const result = await createDJ(data)
@@ -240,6 +246,19 @@ export default function NewDJPage() {
                       required
                       className="glass border-border/50 bg-background/50"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Senha *</Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      value={(formData as any).password}
+                      onChange={handleChange}
+                      required
+                      className="glass border-border/50 bg-background/50"
+                    />
+                    <p className="text-xs text-muted-foreground">Informe apenas o identificador (ex: "joao"). O sistema enviará "@unk" automaticamente se o email não contiver domínio.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">Telefone</Label>

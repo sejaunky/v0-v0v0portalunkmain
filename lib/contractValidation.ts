@@ -1,4 +1,4 @@
-import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase"
+import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase.server"
 
 export const validateContractForSignature = async (
   contractId: string,
