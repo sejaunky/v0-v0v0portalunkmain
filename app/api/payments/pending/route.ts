@@ -8,7 +8,7 @@ export async function GET() {
       return NextResponse.json({ payments: [], warning: "Database not configured" }, { status: 200 })
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const { data, error } = await supabase.from('payments').select('*').eq('status', 'pending').order('created_at', { ascending: false })

@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isSupabaseConfigured()) return NextResponse.json({ error: "Database not configured" }, { status: 503 })
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const updates: any = { status: newStatus, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }
