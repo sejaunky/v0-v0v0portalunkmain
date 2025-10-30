@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isSupabaseConfigured()) return NextResponse.json({ error: "Database not configured" }, { status: 503 })
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const { data, error } = await supabase.from('share_links').update({ revoked: true, updated_at: new Date().toISOString() }).eq('id', shareId).select()

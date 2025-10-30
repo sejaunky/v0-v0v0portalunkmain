@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     expiryDate.setDate(expiryDate.getDate() + expiryDays)
 
     if (!isSupabaseConfigured()) return NextResponse.json({ error: "Database not configured" }, { status: 503 })
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) throw new Error('Failed to initialize Supabase client')
 
     const { data: result, error } = await supabase.from('share_links').insert([{ dj_id: djId, producer_id: producerId, share_token: shareToken, expires_at: expiryDate.toISOString(), password: password || null }]).select()
