@@ -16,8 +16,8 @@ const PaymentReviews = () => {
       const fetchOnce = async () => {
         const response = await fetch("/api/payments/pending")
         if (!response.ok) {
-          // try to read details if possible
-          const maybeBody = await response.text().catch(() => null)
+          // try to read details if possible without locking the original stream
+          const maybeBody = await response.clone().text().catch(() => null)
           let details = null
           try {
             details = maybeBody ? JSON.parse(maybeBody) : null
@@ -86,7 +86,7 @@ const PaymentReviews = () => {
         })
 
         if (!response.ok) {
-          const errBody = await response.json().catch(() => null)
+          const errBody = await response.clone().json().catch(() => null)
           throw new Error(errBody?.error || "Failed to reject payment")
         }
 
@@ -108,7 +108,7 @@ const PaymentReviews = () => {
       })
 
       if (!response.ok) {
-        const errBody = await response.json().catch(() => null)
+        const errBody = await response.clone().json().catch(() => null)
         throw new Error(errBody?.error || "Failed to accept payment")
       }
 
