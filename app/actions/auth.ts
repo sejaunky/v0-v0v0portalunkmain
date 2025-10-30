@@ -1,5 +1,7 @@
 "use server"
 
+"use server"
+
 import { supabaseServer, isSupabaseConfigured } from "@/lib/supabase.server"
 import bcrypt from "bcryptjs"
 import { cookies } from "next/headers"
