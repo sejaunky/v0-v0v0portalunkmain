@@ -1,13 +1,12 @@
 "use client"
 
-"use client"
+
 
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import MetricsCard from "@/components/admin-dashboard/MetricsCard"
 import SummaryTable from "@/components/admin-dashboard/SummaryTable"
 import PaymentReviews from "@/components/admin-dashboard/PaymentReviews"
-import { Icon } from "@/components/Icon"
 import { useAuth } from "@/hooks/use-auth"
 import { analyticsService, eventService, contractService, djService, paymentService } from "@/services/supabaseService"
 import { useSupabaseData as useNeonData } from "@/hooks/useSupabaseData"

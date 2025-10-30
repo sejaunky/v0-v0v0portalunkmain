@@ -1,3 +1,5 @@
+"use client"
+
 import type { UseQueryResult } from "@tanstack/react-query"
 import { useSupabaseData as useNeonData } from "./useSupabaseData"
 import { producerService } from "@/services/supabaseService"
@@ -24,7 +26,7 @@ type UseProducersResult = {
   producers: ProducerRecord[]
   loading: boolean
   error: unknown
-  refetch: UseQueryResult<ProducerRecord[]>["refetch"]
+  refetch: () => Promise<void>
 }
 
 export function useProducers(): UseProducersResult {

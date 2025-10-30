@@ -1,3 +1,5 @@
+"use client"
+
 import type { UseQueryResult } from "@tanstack/react-query"
 import { useSupabaseData as useNeonData } from "./useSupabaseData"
 import { djService as djServiceWrapper } from "@/services/supabaseService"
@@ -25,7 +27,7 @@ type UseDJsResult = {
   djs: DjRecord[]
   loading: boolean
   error: unknown
-  refetch: UseQueryResult<DjRecord[]>["refetch"]
+  refetch: () => Promise<void>
 }
 
 export function useDJs(): UseDJsResult {

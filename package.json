@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@auth/core": "latest",
-    "@ducanh2912/next-pwa": "latest",
     "@emotion/is-prop-valid": "latest",
     "@eslint/js": "latest",
     "@hookform/resolvers": "^3.9.1",
@@ -44,6 +43,8 @@
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
     "@rive-app/react-canvas": "^4.23.4",
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
     "@tanstack/query-core": "^5.90.5",
     "@tanstack/react-query": "latest",
     "@testing-library/jest-dom": "latest",
@@ -65,6 +66,7 @@
     "jose": "latest",
     "jspdf": "^2.5.2",
     "lucide-react": "^0.454.0",
+    "motion": "^12.23.24",
     "next": "^16.0.0",
     "next-auth": "latest",
     "next-themes": "latest",
@@ -83,14 +85,11 @@
     "typescript-eslint": "latest",
     "vaul": "latest",
     "webpack": "latest",
-    "zod": "^3.24.1",
-    "@supabase/supabase-js": "latest",
-    "@supabase/ssr": "latest"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
     "@types/bcryptjs": "^2.4.6",
-    "@types/minimatch": "^6.0.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

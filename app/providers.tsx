@@ -35,14 +35,7 @@ export function GlobalProviders({ children }: { children: React.ReactNode }) {
     window.addEventListener("error", suppressError)
     window.addEventListener("unhandledrejection", suppressRejection)
 
-    // Register Service Worker for PWA
-    if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/sw.js").catch(() => {
-          // Service worker registration failed silently
-        })
-      })
-    }
+    // PWA service worker removed — project is not using PWA anymore.
 
     // Cleanup
     return () => {

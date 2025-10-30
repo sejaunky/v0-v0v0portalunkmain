@@ -1,1 +1,0 @@
-export { notesService } from "./supabaseService"

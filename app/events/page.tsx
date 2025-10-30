@@ -1,7 +1,6 @@
-'use client';
-
-import { redirect } from 'next/navigation';
+import { redirect } from 'next/navigation'
 
 export default function EventsPage() {
-  redirect('/event-calendar');
+  // redirect on the server to the event calendar route
+  redirect('/event-calendar')
 }
