@@ -15,12 +15,12 @@ export const isSupabaseConfigured = () => {
   return !!(supabaseUrl && supabaseKey);
 };
 
-export const getSupabaseServer = () => {
+export const getSupabaseServer = async () => {
   if (!isSupabaseConfigured()) {
     return null;
   }
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   return createServerClient(
     supabaseUrl!,
@@ -44,5 +44,4 @@ export const getSupabaseServer = () => {
   );
 };
 
-// Export as a function that can be called synchronously in route handlers
 export const supabaseServer = getSupabaseServer();
