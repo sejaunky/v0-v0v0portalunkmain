@@ -108,7 +108,7 @@ const PaymentReviews = () => {
       })
 
       if (!response.ok) {
-        const errBody = await response.json().catch(() => null)
+        const errBody = await response.clone().json().catch(() => null)
         throw new Error(errBody?.error || "Failed to accept payment")
       }
 
