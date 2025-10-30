@@ -7,7 +7,7 @@ export async function testDatabaseConnection() {
       return { success: false, error: "DATABASE_URL not configured" }
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) return { success: false, error: "Failed to initialize Supabase client" }
 
     // Try a simple select against a common table
@@ -33,7 +33,7 @@ export async function checkTablesExist() {
       return { success: false, error: "DATABASE_URL not configured" }
     }
 
-    const supabase = supabaseServer
+    const supabase = await supabaseServer()
     if (!supabase) return { success: false, error: "Failed to initialize Supabase client" }
 
     const tablesToCheck = ['djs','producers','events','prospeccoes','payments','contracts']
