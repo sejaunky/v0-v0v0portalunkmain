@@ -8,7 +8,7 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    allowedOrigins: ['localhost:3000', /\.fly\.dev$/, /\.builder\.io$/],
+    allowedDevOrigins: ['localhost:3000', /\.fly\.dev$/, /\.builder\.io$/],
   },
 }
 
