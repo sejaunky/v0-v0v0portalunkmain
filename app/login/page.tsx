@@ -1,11 +1,8 @@
 "use client"
 
-"use client"
-
 import Image from "next/image"
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { login } from "@/app/actions/auth"
 import { BorderBeam } from "@/registry/magicui/border-beam"
 import MorphingText from "@/registry/magicui/morphing-text"
 import { Play, SkipBack, SkipForward } from "lucide-react"
@@ -34,7 +31,13 @@ export default function LoginPage() {
     const emailToUse = String(email).includes("@") ? email : `${email}@unk`
 
     try {
-      const result = await login(emailToUse, password)
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailToUse, password }),
+      })
+
+      const result = await response.json()
 
       if (!result || !result.success) {
         setError(result?.error || 'Falha ao efetuar login')
