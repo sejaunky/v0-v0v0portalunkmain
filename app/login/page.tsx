@@ -1,11 +1,8 @@
 "use client"
 
-"use client"
-
 import Image from "next/image"
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { login } from "@/app/actions/auth"
 import { BorderBeam } from "@/registry/magicui/border-beam"
 import MorphingText from "@/registry/magicui/morphing-text"
 import { Play, SkipBack, SkipForward } from "lucide-react"
@@ -34,7 +31,13 @@ export default function LoginPage() {
     const emailToUse = String(email).includes("@") ? email : `${email}@unk`
 
     try {
-      const result = await login(emailToUse, password)
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailToUse, password }),
+      })
+
+      const result = await response.json()
 
       if (!result || !result.success) {
         setError(result?.error || 'Falha ao efetuar login')
@@ -84,7 +87,7 @@ export default function LoginPage() {
         <CardContent>
           <div className="flex flex-col items-center gap-4">
             <div className="h-48 w-48 rounded-lg bg-gradient-to-br from-purple-500 to-gray-500 overflow-hidden flex items-center justify-center">
-              <img src="/u branco.png" alt="logo" className="object-contain h-40 w-40" />
+              <img src="/logo.png" alt="logo" className="object-contain h-40 w-40" />
             </div>
 
             <div className="w-full">
