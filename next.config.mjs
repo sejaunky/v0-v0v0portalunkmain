@@ -7,9 +7,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    allowedDevOrigins: ['localhost:3000', /\.fly\.dev$/, /\.builder\.io$/],
-  },
+  allowedOrigins: ['localhost:3000', /\.fly\.dev$/, /\.builder\.io$/, /localhost/],
 }
 
 export default nextConfig
