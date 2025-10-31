@@ -84,7 +84,7 @@ export default function LoginPage() {
         <CardContent>
           <div className="flex flex-col items-center gap-4">
             <div className="h-48 w-48 rounded-lg bg-gradient-to-br from-purple-500 to-gray-500 overflow-hidden flex items-center justify-center">
-              <img src="/u branco.png" alt="logo" className="object-contain h-40 w-40" />
+              <img src="/logo.png" alt="logo" className="object-contain h-40 w-40" />
             </div>
 
             <div className="w-full">
